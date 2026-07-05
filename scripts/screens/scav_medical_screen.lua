@@ -4,14 +4,9 @@ local Image = require "widgets/image"
 local Text = require "widgets/text"
 local ImageButton = require "widgets/imagebutton"
 
--- Helper to check and resolve custom UI assets with fallback support
+-- Helper to resolve custom UI assets directly (statically registered in modmain)
 local function GetUIAsset(name, fallback_atlas, fallback_tex)
-    local xml_path = "images/"..name..".xml"
-    local tex_path = name..".tex"
-    if kleifileexists("mods/MEGACALLLMOD/"..xml_path) then
-        return xml_path, tex_path, true
-    end
-    return fallback_atlas, fallback_tex, false
+    return "images/"..name..".xml", name..".tex", true
 end
 
 local ScavMedicalScreen = Class(Screen, function(self, owner, item)

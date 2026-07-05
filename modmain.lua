@@ -43,29 +43,29 @@ end
 Assets = {
     -- Custom item assets
     -- Asset("ANIM", "anim/scav_items.zip"),
+    
+    -- Custom UI assets
+    Asset("ATLAS", "images/Body.xml"),
+    Asset("IMAGE", "images/Body.tex"),
+    Asset("ATLAS", "images/Head.xml"),
+    Asset("IMAGE", "images/Head.tex"),
+    Asset("ATLAS", "images/LHand.xml"),
+    Asset("IMAGE", "images/LHand.tex"),
+    Asset("ATLAS", "images/RHand.xml"),
+    Asset("IMAGE", "images/RHand.tex"),
+    Asset("ATLAS", "images/LLeg.xml"),
+    Asset("IMAGE", "images/LLeg.tex"),
+    Asset("ATLAS", "images/RLeg.xml"),
+    Asset("IMAGE", "images/RLeg.tex"),
+    Asset("ATLAS", "images/Circle-removebg-preview.xml"),
+    Asset("IMAGE", "images/Circle-removebg-preview.tex"),
+    Asset("ATLAS", "images/Bondage-removebg-preview.xml"),
+    Asset("IMAGE", "images/Bondage-removebg-preview.tex"),
+    Asset("ATLAS", "images/Arm-removebg-preview.xml"),
+    Asset("IMAGE", "images/Arm-removebg-preview.tex"),
+    Asset("ATLAS", "images/ArmFist-removebg-preview.xml"),
+    Asset("IMAGE", "images/ArmFist-removebg-preview.tex"),
 }
-
--- Dynamically load custom UI assets if compiled XML/TEX files exist
-local custom_ui_assets = {
-    "Body",
-    "Head",
-    "LHand",
-    "RHand",
-    "LLeg",
-    "RLeg",
-    "Circle-removebg-preview",
-    "Bondage-removebg-preview",
-    "Arm-removebg-preview",
-    "ArmFist-removebg-preview",
-}
-for _, asset_name in GLOBAL.ipairs(custom_ui_assets) do
-    local xml_path = "images/" .. asset_name .. ".xml"
-    local tex_path = "images/" .. asset_name .. ".tex"
-    if GLOBAL.kleifileexists("mods/MEGACALLLMOD/" .. xml_path) then
-        GLOBAL.table.insert(Assets, Asset("ATLAS", xml_path))
-        GLOBAL.table.insert(Assets, Asset("IMAGE", tex_path))
-    end
-end
 
 -- Prefab files to load
 PrefabFiles = {
