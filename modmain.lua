@@ -61,7 +61,7 @@ local custom_ui_assets = {
 for _, asset_name in GLOBAL.ipairs(custom_ui_assets) do
     local xml_path = "images/" .. asset_name .. ".xml"
     local tex_path = "images/" .. asset_name .. ".tex"
-    if GLOBAL.TheSim:FileExists("mods/MEGACALLLMOD/" .. xml_path) then
+    if GLOBAL.kleifileexists("mods/MEGACALLLMOD/" .. xml_path) then
         GLOBAL.table.insert(Assets, Asset("ATLAS", xml_path))
         GLOBAL.table.insert(Assets, Asset("IMAGE", tex_path))
     end

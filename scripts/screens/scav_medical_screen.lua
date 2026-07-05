@@ -8,7 +8,7 @@ local ImageButton = require "widgets/imagebutton"
 local function GetUIAsset(name, fallback_atlas, fallback_tex)
     local xml_path = "images/"..name..".xml"
     local tex_path = name..".tex"
-    if TheSim:FileExists("mods/MEGACALLLMOD/"..xml_path) then
+    if kleifileexists("mods/MEGACALLLMOD/"..xml_path) then
         return xml_path, tex_path, true
     end
     return fallback_atlas, fallback_tex, false
