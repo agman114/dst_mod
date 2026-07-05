@@ -1,0 +1,7 @@
+# Don't Starve Together Mod gitignore
+*.log
+.vscode/
+.gemini/
+.agents/
+Thumbs.db
+Desktop.ini
