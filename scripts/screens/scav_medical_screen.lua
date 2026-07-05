@@ -118,17 +118,13 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.wrap_bandage:SetSize(40, 40)
     self.wrap_bandage:Hide()
 
-    -- Custom Hand Cursor
+    -- Custom Hand Cursor (hidden by default, only visible during minigames)
     local cursor_atlas, cursor_tex = GetUIAsset("Arm-removebg-preview", "images/global_redux.xml", "button_square.tex")
     self.hand_cursor = self.root:AddChild(Image(cursor_atlas, cursor_tex))
-    self.hand_cursor:SetScale(0.8, 0.8) -- Make it larger
-    self.hand_cursor:SetVRegPoint(ANCHOR_TOP) -- Anchor the top of the image (the hand/palm) to the cursor
-    self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE) -- Center horizontally
-
-    -- Hide standard mouse cursor
-    if TheInputProxy then
-        TheInputProxy:SetCursorVisible(false)
-    end
+    self.hand_cursor:SetScale(0.8, 0.8)
+    self.hand_cursor:SetVRegPoint(ANCHOR_TOP)
+    self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
+    self.hand_cursor:Hide()
 
     self.was_clicked = nil
 
@@ -223,6 +219,13 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
 
         self.instructions:SetString("Зажмите мышь и водите бинт КРУГАМИ вокруг раны!")
         self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+
+        -- Hide hardware cursor and show custom hand cursor for the minigame
+        if TheInputProxy then
+            TheInputProxy:SetCursorVisible(false)
+        end
+        self.hand_cursor:Show()
+        self.was_clicked = nil
     
     elseif self.item_type == "splint" then
         local is_broken = false
@@ -266,21 +269,23 @@ end
 function ScavMedicalScreen:OnUpdate(dt)
     self:UpdateLimbHealth()
 
-    -- Follow mouse with custom hand cursor
-    local w, h = TheSim:GetScreenSize()
-    local mouse_pos = TheInput:GetScreenPosition()
-    local scale = self.root:GetScale()
-    local local_x = (mouse_pos.x - w / 2) / scale.x
-    local local_y = (mouse_pos.y - h / 2) / scale.y
-    self.hand_cursor:SetPosition(local_x, local_y)
+    if self.wrapping_active then
+        -- Follow mouse with custom hand cursor
+        local w, h = TheSim:GetScreenSize()
+        local mouse_pos = TheInput:GetScreenPosition()
+        local scale = self.root:GetScale()
+        local local_x = (mouse_pos.x - w / 2) / scale.x
+        local local_y = (mouse_pos.y - h / 2) / scale.y
+        self.hand_cursor:SetPosition(local_x, local_y)
 
-    -- Toggle hand cursor texture ONLY on click state change (prevents GPU rebinding flicker/disappearance)
-    local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
-    if self.was_clicked == nil or self.was_clicked ~= is_clicked then
-        self.was_clicked = is_clicked
-        local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
-        local cursor_atlas, cursor_tex = GetUIAsset(cursor_name, "images/global_redux.xml", "button_square.tex")
-        self.hand_cursor:SetTexture(cursor_atlas, cursor_tex)
+        -- Toggle hand cursor texture ONLY on click state change (prevents GPU rebinding flicker/disappearance)
+        local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
+        if self.was_clicked == nil or self.was_clicked ~= is_clicked then
+            self.was_clicked = is_clicked
+            local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
+            local cursor_atlas, cursor_tex = GetUIAsset(cursor_name, "images/global_redux.xml", "button_square.tex")
+            self.hand_cursor:SetTexture(cursor_atlas, cursor_tex)
+        end
     end
 
     if self.wrapping_active then
