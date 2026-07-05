@@ -120,8 +120,8 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
 
     -- Hide standard mouse cursor
-    if TheFrontEnd then
-        TheFrontEnd:ShowCursor(false)
+    if TheInputProxy then
+        TheInputProxy:SetCursorVisible(false)
     end
 
     self:UpdateLimbHealth()
@@ -341,8 +341,8 @@ end
 
 function ScavMedicalScreen:Close()
     self.wrapping_active = false
-    if TheFrontEnd then
-        TheFrontEnd:ShowCursor(true) -- Restore hardware cursor
+    if TheInputProxy then
+        TheInputProxy:SetCursorVisible(true) -- Restore hardware cursor
     end
     TheFrontEnd:PopScreen(self)
 end
