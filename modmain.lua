@@ -39,11 +39,33 @@ if not TheNet:IsDedicated() then
     end
 end
 
--- Assets to load (we comment out custom textures until compiled)
+-- Assets to load
 Assets = {
     -- Custom item assets
     -- Asset("ANIM", "anim/scav_items.zip"),
 }
+
+-- Dynamically load custom UI assets if compiled XML/TEX files exist
+local custom_ui_assets = {
+    "Body",
+    "Head",
+    "LHand",
+    "RHand",
+    "LLeg",
+    "RLeg",
+    "Circle-removebg-preview",
+    "Bondage-removebg-preview",
+    "Arm-removebg-preview",
+    "ArmFist-removebg-preview",
+}
+for _, asset_name in GLOBAL.ipairs(custom_ui_assets) do
+    local xml_path = "images/" .. asset_name .. ".xml"
+    local tex_path = "images/" .. asset_name .. ".tex"
+    if GLOBAL.TheSim:FileExists("mods/MEGACALLLMOD/" .. xml_path) then
+        GLOBAL.table.insert(Assets, Asset("ATLAS", xml_path))
+        GLOBAL.table.insert(Assets, Asset("IMAGE", tex_path))
+    end
+end
 
 -- Prefab files to load
 PrefabFiles = {

@@ -4,6 +4,16 @@ local Image = require "widgets/image"
 local Text = require "widgets/text"
 local ImageButton = require "widgets/imagebutton"
 
+-- Helper to check and resolve custom UI assets with fallback support
+local function GetUIAsset(name, fallback_atlas, fallback_tex)
+    local xml_path = "images/"..name..".xml"
+    local tex_path = name..".tex"
+    if TheSim:FileExists("mods/MEGACALLLMOD/"..xml_path) then
+        return xml_path, tex_path, true
+    end
+    return fallback_atlas, fallback_tex, false
+end
+
 local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     Screen._ctor(self, "ScavMedicalScreen")
     
@@ -36,7 +46,7 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
 
     -- Instruction text
     self.instructions = self.panel:AddChild(Text(CHATFONT, 20))
-    self.instructions:SetPosition(0, 210)
+    self.instructions:SetPosition(0, 215)
     self.instructions:SetString("Выберите поврежденную конечность для лечения")
     self.instructions:SetColour(0.8, 0.8, 0.8, 1)
 
@@ -49,31 +59,30 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     end)
 
     -- Draw Body Silhouette
-    -- Center coords for each limb in panel space
-    self.limb_centers = {
-        head = { x = 0, y = 110 },
-        torso = { x = 0, y = 20 },
-        left_arm = { x = -90, y = 30 },
-        right_arm = { x = 90, y = 30 },
-        left_leg = { x = -45, y = -90 },
-        right_leg = { x = 45, y = -90 },
+    -- Coordinates, dimensions, and asset configuration for limbs
+    self.limb_layout = {
+        head = { x = 0, y = 140, w = 108, h = 94, asset = "Head", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
+        torso = { x = 0, y = 40, w = 83, h = 134, asset = "Body", fallback_atlas = "images/global_redux.xml", fallback_tex = "panel_blank.tex" },
+        left_arm = { x = -125, y = 75, w = 207, h = 58, asset = "LHand", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
+        right_arm = { x = 125, y = 75, w = 207, h = 58, asset = "RHand", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
+        left_leg = { x = -30, y = -110, w = 67, h = 194, asset = "LLeg", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
+        right_leg = { x = 30, y = -110, w = 67, h = 194, asset = "RLeg", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
     }
 
     self.limb_buttons = {}
     self.limb_texts = {}
 
-    -- Safe textures for limbs (falls back to generic UI assets if custom ones aren't built)
-    local use_custom_assets = false -- set true when compiled XML/TEX exist
-
-    for limb_name, coords in pairs(self.limb_centers) do
-        -- Add interactive button for each limb
-        local btn = self.panel:AddChild(ImageButton("images/global_redux.xml", "button_square.tex", "button_square_over.tex"))
-        btn:SetPosition(coords.x, coords.y)
-        btn:ForceImageSize(80, 80)
+    for limb_name, data in pairs(self.limb_layout) do
+        local atlas, tex, is_custom = GetUIAsset(data.asset, data.fallback_atlas, data.fallback_tex)
+        local btn = self.panel:AddChild(ImageButton(atlas, tex, tex))
+        btn:SetPosition(data.x, data.y)
+        btn:ForceImageSize(data.w, data.h)
+        btn:SetFocusScale(1.03, 1.03) -- Subtle pop on hover
         
-        -- Text inside the button showing health
-        local btn_text = btn:AddChild(Text(NUMBERFONT, 20))
-        btn_text:SetPosition(0, -35)
+        -- Text display below each limb showing health & status
+        local btn_text = btn:AddChild(Text(NUMBERFONT, 18))
+        -- Align text cleanly below the limb
+        btn_text:SetPosition(0, -data.h/2 - 12)
         
         btn:SetOnClick(function()
             self:OnLimbClicked(limb_name)
@@ -83,17 +92,37 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
         self.limb_texts[limb_name] = btn_text
     end
 
-    -- Circular wrapping variables
+    -- Circular wrapping variables & assets
     self.wrapping_active = false
     self.wrapping_limb = nil
     self.wrap_accumulated_angle = 0
     self.wrap_angle_prev = nil
     self.wrap_center_screen = { x = 0, y = 0 }
 
-    -- Visual hand indicator for wrapping
-    self.hand_visual = self.panel:AddChild(Image("images/global_redux.xml", "pointer.tex"))
-    self.hand_visual:Hide()
-    self.hand_visual:SetSize(40, 40)
+    -- Black circle (wrapping guide radius)
+    local circle_atlas, circle_tex = GetUIAsset("Circle-removebg-preview", "images/global.xml", "square.tex")
+    self.wrap_circle = self.panel:AddChild(Image(circle_atlas, circle_tex))
+    self.wrap_circle:SetPosition(0, 40)
+    self.wrap_circle:SetSize(220, 222)
+    self.wrap_circle:Hide()
+
+    -- White circle (bandage visual)
+    local bandage_atlas, bandage_tex = GetUIAsset("Bondage-removebg-preview", "images/global_redux.xml", "button_square.tex")
+    self.wrap_bandage = self.panel:AddChild(Image(bandage_atlas, bandage_tex))
+    self.wrap_bandage:SetSize(40, 40)
+    self.wrap_bandage:Hide()
+
+    -- Custom Hand Cursor
+    local cursor_atlas, cursor_tex = GetUIAsset("Arm-removebg-preview", "images/global_redux.xml", "button_square.tex")
+    self.hand_cursor = self.root:AddChild(Image(cursor_atlas, cursor_tex))
+    self.hand_cursor:SetScale(0.3, 0.3) -- Scale down large PNG hand asset
+    self.hand_cursor:SetVRegPoint(ANCHOR_MIDDLE)
+    self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
+
+    -- Hide standard mouse cursor
+    if TheFrontEnd then
+        TheFrontEnd:ShowCursor(false)
+    end
 
     self:UpdateLimbHealth()
     self:StartUpdating()
@@ -149,8 +178,15 @@ function ScavMedicalScreen:UpdateLimbHealth()
     for name, data in pairs(health_data) do
         local btn = self.limb_buttons[name]
         local txt = self.limb_texts[name]
+        local limb_asset = self.limb_layout[name].asset
         if btn and txt then
-            btn:SetText(limb_ru_names[name])
+            local _, _, is_custom = GetUIAsset(limb_asset, "", "")
+            if not is_custom then
+                -- Text name on button only if custom silhouette assets are not loaded
+                btn:SetText(limb_ru_names[name])
+            else
+                btn:SetText("")
+            end
             txt:SetString(string.format("%d%% (%s)", data.health, data.status))
             txt:SetColour(data.colour[1], data.colour[2], data.colour[3], data.colour[4])
         end
@@ -163,7 +199,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
     local inst = self.owner
 
     if self.item_type == "bandage" then
-        -- Bandaging bleeding limbs
         local is_bleeding = false
         if limb_name == "torso" and inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() then is_bleeding = true
         elseif limb_name == "left_arm" and inst.scav_bleeding_left_arm and inst.scav_bleeding_left_arm:value() then is_bleeding = true
@@ -178,25 +213,28 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
             return
         end
 
-        -- Start the circular wrapping minigame
+        -- Start wrapping minigame
         self.wrapping_active = true
         self.wrapping_limb = limb_name
         self.wrap_accumulated_angle = 0
         self.wrap_angle_prev = nil
         
-        -- Get screen space center of the clicked button
-        local button = self.limb_buttons[limb_name]
-        local screen_pos = button:GetGlobalPosition()
-        self.wrap_center_screen = screen_pos
+        -- Temporarily hide limbs to focus visual on the wrapping game
+        for _, btn in pairs(self.limb_buttons) do
+            btn:Hide()
+        end
 
-        self.instructions:SetString("Зажмите мышь и водите КРУГАМИ вокруг раны!")
+        self.wrap_circle:Show()
+        self.wrap_bandage:Show()
+        
+        -- Get screen space center of the wrapping circle (centered at torso center 0, 40)
+        local panel_pos = self.panel:GetGlobalPosition()
+        self.wrap_center_screen = { x = panel_pos.x, y = panel_pos.y + 40 }
+
+        self.instructions:SetString("Зажмите мышь и водите бинт КРУГАМИ вокруг раны!")
         self.instructions:SetColour(0.3, 0.9, 0.3, 1)
-
-        self.hand_visual:Show()
-        self.hand_visual:SetPosition(button:GetPosition())
     
     elseif self.item_type == "splint" then
-        -- Splint fixes fractures
         local is_broken = false
         if limb_name == "left_arm" and inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() then is_broken = true
         elseif limb_name == "right_arm" and inst.scav_broken_right_arm and inst.scav_broken_right_arm:value() then is_broken = true
@@ -210,7 +248,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
             return
         end
 
-        -- Splint is a simple hold action (QTE)
         self.instructions:SetString("Накладываем шину...")
         self.instructions:SetColour(0.3, 0.9, 0.3, 1)
         
@@ -220,7 +257,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         end)
     
     elseif self.item_type == "antidote" then
-        -- Antidote can be applied anywhere to cure poison
         if not inst.scav_poisoned or not inst.scav_poisoned:value() then
             self.instructions:SetString("Вы не отравлены! Шприц не нужен.")
             self.instructions:SetColour(1, 0.3, 0.3, 1)
@@ -237,52 +273,57 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
     end
 end
 
--- Frame update loop to handle mouse tracking in the wrapping minigame
 function ScavMedicalScreen:OnUpdate(dt)
     self:UpdateLimbHealth()
 
+    -- Follow mouse with custom hand cursor
+    local mouse_pos = TheInput:GetScreenPosition()
+    local local_mouse = self.root:GetLocalPosition(mouse_pos)
+    self.hand_cursor:SetPosition(local_mouse.x, local_mouse.y)
+
+    -- Toggle hand cursor texture on hold/click
+    local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
+    local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
+    local cursor_atlas, cursor_tex = GetUIAsset(cursor_name, "images/global_redux.xml", "button_square.tex")
+    self.hand_cursor:SetTexture(cursor_atlas, cursor_tex)
+
     if self.wrapping_active then
-        -- Track the mouse position
-        local mouse_pos = TheInput:GetScreenPosition()
         local mouse_x = mouse_pos.x
         local mouse_y = mouse_pos.y
 
-        -- Position visual indicator relative to the panel
-        local local_mouse = self.panel:GetLocalPosition(mouse_pos)
-        self.hand_visual:SetPosition(local_mouse.x, local_mouse.y)
-
-        -- If player is holding LMB down
         if TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
-            -- Calculate angle relative to center of the wrapping limb
+            -- Angle calculations relative to center of wrapping circle
             local dx = mouse_x - self.wrap_center_screen.x
             local dy = mouse_y - self.wrap_center_screen.y
             local dist = math.sqrt(dx*dx + dy*dy)
 
-            -- Player needs to move in a reasonable circle radius (e.g., between 20 and 150 pixels)
-            if dist > 20 and dist < 200 then
+            -- Constrain bandage rotation radius to 110 pixels (matching Circle PNG radius)
+            if dist > 20 and dist < 220 then
                 local angle = math.atan2(dy, dx)
                 
+                -- Position bandage visual along the circle path
+                local bx = 110 * math.cos(angle)
+                local by = 40 + 110 * math.sin(angle)
+                self.wrap_bandage:SetPosition(bx, by)
+
                 if self.wrap_angle_prev then
                     local diff = angle - self.wrap_angle_prev
-                    
-                    -- Normalize difference to [-pi, pi]
                     while diff > math.pi do diff = diff - 2*math.pi end
                     while diff < -math.pi do diff = diff + 2*math.pi end
 
-                    -- Accumulate the angle change
                     self.wrap_accumulated_angle = self.wrap_accumulated_angle + diff
                     
                     local progress = math.min(100, math.floor(math.abs(self.wrap_accumulated_angle) / (3 * 2 * math.pi) * 100))
                     self.instructions:SetString(string.format("Намотка бинта: %d%%", progress))
 
-                    -- 3 full rotations completed
+                    -- 3 rotations completed
                     if math.abs(self.wrap_accumulated_angle) >= (3 * 2 * math.pi) then
                         self.wrapping_active = false
-                        self.hand_visual:Hide()
+                        self.wrap_circle:Hide()
+                        self.wrap_bandage:Hide()
                         self.instructions:SetString("Перевязка завершена!")
                         self.owner.SoundEmitter:PlaySound("dontstarve/common/cloth_rippage")
 
-                        -- Tell server to apply the heal
                         SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.wrapping_limb)
                         self:Close()
                     end
@@ -290,7 +331,6 @@ function ScavMedicalScreen:OnUpdate(dt)
                 self.wrap_angle_prev = angle
             end
         else
-            -- If player releases LMB, reset rotation progress slightly
             self.wrap_angle_prev = nil
             self.wrap_accumulated_angle = math.max(0, self.wrap_accumulated_angle - dt * 2.0)
             self.instructions:SetString("Зажмите мышь для намотки!")
@@ -301,6 +341,9 @@ end
 
 function ScavMedicalScreen:Close()
     self.wrapping_active = false
+    if TheFrontEnd then
+        TheFrontEnd:ShowCursor(true) -- Restore hardware cursor
+    end
     TheFrontEnd:PopScreen(self)
 end
 
@@ -313,7 +356,6 @@ function ScavMedicalScreen:OnControl(control, down)
         return true
     end
     
-    -- Block standard clicks from interacting with the background world while screen is open
     return true
 end
 
