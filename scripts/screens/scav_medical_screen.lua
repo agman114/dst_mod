@@ -218,7 +218,8 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         
         -- Get screen space center of the wrapping circle (centered at torso center 0, 40)
         local panel_pos = self.panel:GetGlobalPosition()
-        self.wrap_center_screen = { x = panel_pos.x, y = panel_pos.y + 40 }
+        local scale = self.root:GetScale()
+        self.wrap_center_screen = { x = panel_pos.x, y = panel_pos.y + 40 * scale.y }
 
         self.instructions:SetString("Зажмите мышь и водите бинт КРУГАМИ вокруг раны!")
         self.instructions:SetColour(0.3, 0.9, 0.3, 1)
@@ -266,9 +267,12 @@ function ScavMedicalScreen:OnUpdate(dt)
     self:UpdateLimbHealth()
 
     -- Follow mouse with custom hand cursor
+    local w, h = TheSim:GetScreenSize()
     local mouse_pos = TheInput:GetScreenPosition()
-    local local_mouse = self.root:GetLocalPosition(mouse_pos)
-    self.hand_cursor:SetPosition(local_mouse.x, local_mouse.y)
+    local scale = self.root:GetScale()
+    local local_x = (mouse_pos.x - w / 2) / scale.x
+    local local_y = (mouse_pos.y - h / 2) / scale.y
+    self.hand_cursor:SetPosition(local_x, local_y)
 
     -- Toggle hand cursor texture ONLY on click state change (prevents GPU rebinding flicker/disappearance)
     local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
