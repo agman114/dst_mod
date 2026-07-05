@@ -2,7 +2,6 @@ local Screen = require "widgets/screen"
 local Widget = require "widgets/widget"
 local Image = require "widgets/image"
 local Text = require "widgets/text"
-local ImageButton = require "widgets/imagebutton"
 
 -- Helper to resolve custom UI assets directly (statically registered in modmain)
 local function GetUIAsset(name, fallback_atlas, fallback_tex)
@@ -46,7 +45,10 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.instructions:SetColour(0.8, 0.8, 0.8, 1)
 
     -- Close Button
-    self.close_btn = self.panel:AddChild(ImageButton("images/global_redux.xml", "button_red.tex", "button_red_over.tex"))
+    local btn_atlas = "images/global_redux.xml"
+    local close_btn_normal = "button_red.tex"
+    local ImageButton = require "widgets/imagebutton"
+    self.close_btn = self.panel:AddChild(ImageButton(btn_atlas, close_btn_normal, "button_red_over.tex"))
     self.close_btn:SetPosition(0, -250)
     self.close_btn:SetText("Закрыть")
     self.close_btn:SetOnClick(function()
@@ -54,7 +56,6 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     end)
 
     -- Draw Body Silhouette
-    -- Coordinates, dimensions, and asset configuration for limbs
     self.limb_layout = {
         head = { x = 0, y = 140, w = 108, h = 94, asset = "Head", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
         torso = { x = 0, y = 40, w = 83, h = 134, asset = "Body", fallback_atlas = "images/global_redux.xml", fallback_tex = "panel_blank.tex" },
@@ -64,26 +65,36 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
         right_leg = { x = 30, y = -110, w = 67, h = 194, asset = "RLeg", fallback_atlas = "images/global_redux.xml", fallback_tex = "button_square.tex" },
     }
 
-    self.limb_buttons = {}
+    self.limb_images = {}
     self.limb_texts = {}
 
     for limb_name, data in pairs(self.limb_layout) do
-        local atlas, tex, is_custom = GetUIAsset(data.asset, data.fallback_atlas, data.fallback_tex)
-        local btn = self.panel:AddChild(ImageButton(atlas, tex, tex))
-        btn:SetPosition(data.x, data.y)
-        btn:ForceImageSize(data.w, data.h)
-        btn:SetFocusScale(1.03, 1.03) -- Subtle pop on hover
+        local atlas, tex = GetUIAsset(data.asset, data.fallback_atlas, data.fallback_tex)
+        local img = self.panel:AddChild(Image(atlas, tex))
+        img:SetPosition(data.x, data.y)
+        img:SetSize(data.w, data.h)
         
-        -- Text display below each limb showing health & status
-        local btn_text = btn:AddChild(Text(NUMBERFONT, 18))
-        -- Align text cleanly below the limb
-        btn_text:SetPosition(0, -data.h/2 - 12)
+        -- Hover scale feedback
+        img.OnGainFocus = function(widget)
+            widget:SetScale(1.05, 1.05)
+        end
+        img.OnLoseFocus = function(widget)
+            widget:SetScale(1, 1)
+        end
         
-        btn:SetOnClick(function()
-            self:OnLimbClicked(limb_name)
-        end)
+        -- Click handler
+        img.OnMouseButton = function(widget, button, down, x, y)
+            if not down and button == MOUSEBUTTON_LEFT then
+                self:OnLimbClicked(limb_name)
+                return true
+            end
+        end
 
-        self.limb_buttons[limb_name] = btn
+        -- Text display below each limb showing health & status
+        local btn_text = self.panel:AddChild(Text(NUMBERFONT, 18))
+        btn_text:SetPosition(data.x, data.y - data.h/2 - 12)
+        
+        self.limb_images[limb_name] = img
         self.limb_texts[limb_name] = btn_text
     end
 
@@ -119,11 +130,12 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
         TheInputProxy:SetCursorVisible(false)
     end
 
+    self.was_clicked = nil
+
     self:UpdateLimbHealth()
     self:StartUpdating()
 end)
 
--- Read network variables on the character to update UI health
 function ScavMedicalScreen:UpdateLimbHealth()
     local inst = self.owner
     if not inst then return end
@@ -161,27 +173,9 @@ function ScavMedicalScreen:UpdateLimbHealth()
         },
     }
 
-    local limb_ru_names = {
-        head = "Голова",
-        torso = "Торс",
-        left_arm = "Л. Рука",
-        right_arm = "П. Рука",
-        left_leg = "Л. Нога",
-        right_leg = "П. Нога",
-    }
-
     for name, data in pairs(health_data) do
-        local btn = self.limb_buttons[name]
         local txt = self.limb_texts[name]
-        local limb_asset = self.limb_layout[name].asset
-        if btn and txt then
-            local _, _, is_custom = GetUIAsset(limb_asset, "", "")
-            if not is_custom then
-                -- Text name on button only if custom silhouette assets are not loaded
-                btn:SetText(limb_ru_names[name])
-            else
-                btn:SetText("")
-            end
+        if txt then
             txt:SetString(string.format("%d%% (%s)", data.health, data.status))
             txt:SetColour(data.colour[1], data.colour[2], data.colour[3], data.colour[4])
         end
@@ -215,8 +209,8 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.wrap_angle_prev = nil
         
         -- Temporarily hide limbs to focus visual on the wrapping game
-        for _, btn in pairs(self.limb_buttons) do
-            btn:Hide()
+        for _, img in pairs(self.limb_images) do
+            img:Hide()
         end
 
         self.wrap_circle:Show()
@@ -276,11 +270,14 @@ function ScavMedicalScreen:OnUpdate(dt)
     local local_mouse = self.root:GetLocalPosition(mouse_pos)
     self.hand_cursor:SetPosition(local_mouse.x, local_mouse.y)
 
-    -- Toggle hand cursor texture on hold/click
+    -- Toggle hand cursor texture ONLY on click state change (prevents GPU rebinding flicker/disappearance)
     local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
-    local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
-    local cursor_atlas, cursor_tex = GetUIAsset(cursor_name, "images/global_redux.xml", "button_square.tex")
-    self.hand_cursor:SetTexture(cursor_atlas, cursor_tex)
+    if self.was_clicked == nil or self.was_clicked ~= is_clicked then
+        self.was_clicked = is_clicked
+        local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
+        local cursor_atlas, cursor_tex = GetUIAsset(cursor_name, "images/global_redux.xml", "button_square.tex")
+        self.hand_cursor:SetTexture(cursor_atlas, cursor_tex)
+    end
 
     if self.wrapping_active then
         local mouse_x = mouse_pos.x
