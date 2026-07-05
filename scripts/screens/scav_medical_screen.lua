@@ -192,12 +192,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         elseif limb_name == "right_leg" and inst.scav_bleeding_right_leg and inst.scav_bleeding_right_leg:value() then is_bleeding = true
         end
 
-        if not is_bleeding then
-            self.instructions:SetString("Конечность не кровоточит! Бинт не нужен.")
-            self.instructions:SetColour(1, 0.3, 0.3, 1)
-            return
-        end
-
         -- Start wrapping minigame
         self.wrapping_active = true
         self.wrapping_limb = limb_name
@@ -217,8 +211,13 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         local scale = self.root:GetScale()
         self.wrap_center_screen = { x = panel_pos.x, y = panel_pos.y + 40 * scale.y }
 
-        self.instructions:SetString("Зажмите мышь и водите бинт КРУГАМИ вокруг раны!")
-        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+        if not is_bleeding then
+            self.instructions:SetString("Конечность не кровоточит, но накладываем бинт для тренировки!")
+            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+        else
+            self.instructions:SetString("Зажмите мышь и водите бинт КРУГАМИ вокруг раны!")
+            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+        end
 
         -- Hide hardware cursor and show custom hand cursor for the minigame
         if TheInputProxy then
@@ -236,13 +235,12 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         end
 
         if not is_broken then
-            self.instructions:SetString("Конечность цела! Шина не нужна.")
-            self.instructions:SetColour(1, 0.3, 0.3, 1)
-            return
+            self.instructions:SetString("Конечность цела, но накладываем шину для теста...")
+            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+        else
+            self.instructions:SetString("Накладываем шину...")
+            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
         end
-
-        self.instructions:SetString("Накладываем шину...")
-        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
         
         self.owner:DoTaskInTime(1.5, function()
             SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, limb_name)
@@ -250,14 +248,15 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         end)
     
     elseif self.item_type == "antidote" then
-        if not inst.scav_poisoned or not inst.scav_poisoned:value() then
-            self.instructions:SetString("Вы не отравлены! Шприц не нужен.")
-            self.instructions:SetColour(1, 0.3, 0.3, 1)
-            return
+        local is_poisoned = inst.scav_poisoned and inst.scav_poisoned:value()
+        
+        if not is_poisoned then
+            self.instructions:SetString("Вы не отравлены, но вкалываем противоядие для теста...")
+            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+        else
+            self.instructions:SetString("Вкалываем противоядие...")
+            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
         end
-
-        self.instructions:SetString("Вкалываем противоядие...")
-        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
         
         self.owner:DoTaskInTime(1.0, function()
             SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, limb_name)

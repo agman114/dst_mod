@@ -270,3 +270,16 @@ AddPrefabPostInit("cave", function(world)
         require("scav_chest_spawner")
     end
 end)
+
+-- Debug key listener to inflict damage and test the limb medical screen
+if not TheNet:IsDedicated() then
+    GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_J, function()
+        local player = GLOBAL.ThePlayer
+        if player and player.components.scav_health then
+            player.components.scav_health:DistributeDamage(30)
+            if player.components.talker then
+                player.components.talker:Say("Ой! Я нанёс себе тестовую травму (клавиша J)!")
+            end
+        end
+    end)
+end
