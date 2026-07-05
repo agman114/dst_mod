@@ -121,9 +121,9 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     -- Custom Hand Cursor
     local cursor_atlas, cursor_tex = GetUIAsset("Arm-removebg-preview", "images/global_redux.xml", "button_square.tex")
     self.hand_cursor = self.root:AddChild(Image(cursor_atlas, cursor_tex))
-    self.hand_cursor:SetScale(0.3, 0.3) -- Scale down large PNG hand asset
-    self.hand_cursor:SetVRegPoint(ANCHOR_MIDDLE)
-    self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
+    self.hand_cursor:SetScale(0.8, 0.8) -- Make it larger
+    self.hand_cursor:SetVRegPoint(ANCHOR_TOP) -- Anchor the top of the image (the hand/palm) to the cursor
+    self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE) -- Center horizontally
 
     -- Hide standard mouse cursor
     if TheInputProxy then
