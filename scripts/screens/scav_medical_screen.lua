@@ -285,9 +285,7 @@ function ScavMedicalScreen:OnUpdate(dt)
             local cursor_atlas, cursor_tex = GetUIAsset(cursor_name, "images/global_redux.xml", "button_square.tex")
             self.hand_cursor:SetTexture(cursor_atlas, cursor_tex)
         end
-    end
 
-    if self.wrapping_active then
         local mouse_x = mouse_pos.x
         local mouse_y = mouse_pos.y
 
