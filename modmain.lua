@@ -69,6 +69,8 @@ Assets = {
     Asset("IMAGE", "images/scav_bandage.tex"),
     Asset("ATLAS", "images/scav_syringe.xml"),
     Asset("IMAGE", "images/scav_syringe.tex"),
+    Asset("ATLAS", "images/scav_body_target.xml"),
+    Asset("IMAGE", "images/scav_body_target.tex"),
 }
 
 -- Prefab files to load
@@ -169,17 +171,35 @@ end)
 -- REGISTER KEYBOARD LISTENER (Open/Close Medical screen on KEY_V)
 --------------------------------------------------------------------------------
 if not TheNet:IsDedicated() then
+    local function IsMedicalScreenOpen()
+        local TheFrontEnd = GLOBAL.TheFrontEnd
+        if TheFrontEnd and TheFrontEnd.screen_stack then
+            for _, screen in ipairs(TheFrontEnd.screen_stack) do
+                if screen.name == "ScavMedicalScreen" then
+                    return screen
+                end
+            end
+        end
+        return nil
+    end
+
     GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_V, function()
         local player = GLOBAL.ThePlayer
         if player and player:IsValid() and player.prefab == "mycharacter" then
             local TheFrontEnd = GLOBAL.TheFrontEnd
             local active_screen = TheFrontEnd:GetActiveScreen()
             
-            if active_screen == player.HUD then
+            -- Prevent opening if chat or console is active
+            if TheFrontEnd:IsChatSystemActive() then
+                return
+            end
+            
+            local open_screen = IsMedicalScreenOpen()
+            if open_screen then
+                open_screen:Close()
+            elseif active_screen == player.HUD then
                 local ScavMedicalScreen = require("screens/scav_medical_screen")
                 TheFrontEnd:PushScreen(ScavMedicalScreen(player))
-            elseif active_screen and active_screen.name == "ScavMedicalScreen" then
-                active_screen:Close()
             end
         end
     end)

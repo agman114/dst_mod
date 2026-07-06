@@ -177,6 +177,13 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.syringe_bg:SetSize(66, 360)
     self.syringe_bg:Hide()
 
+    -- Syringe target body part image (dark black rectangle from the chat)
+    local target_atlas, target_tex = GetUIAsset("scav_body_target", "images/global_redux.xml", "button_square.tex")
+    self.body_target = self.panel:AddChild(Image(target_atlas, target_tex))
+    self.body_target:SetPosition(0, 0)
+    self.body_target:SetSize(270, 228)
+    self.body_target:Hide()
+
     -- Custom Hand Cursor
     local cursor_atlas, cursor_tex = GetUIAsset("Arm-removebg-preview", "images/global_redux.xml", "button_square.tex")
     self.hand_cursor = self.root:AddChild(Image(cursor_atlas, cursor_tex))
@@ -234,6 +241,16 @@ function ScavMedicalScreen:UpdateLimbHealth()
             txt:SetString(string.format("%d%% (%s)", data.health, data.status))
             txt:SetColour(data.colour[1], data.colour[2], data.colour[3], data.colour[4])
         end
+    end
+function ScavMedicalScreen:SetLimbUIActive(active)
+    -- Hide/show limbs
+    for _, img in pairs(self.limb_images) do
+        if active then img:Show() else img:Hide() end
+    end
+    
+    -- Hide/show limb health texts
+    for _, txt in pairs(self.limb_texts) do
+        if active then txt:Show() else txt:Hide() end
     end
 end
 
@@ -311,9 +328,7 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.wrap_accumulated_angle = 0
         self.wrap_angle_prev = nil
         
-        for _, img in pairs(self.limb_images) do
-            img:Hide()
-        end
+        self:SetLimbUIActive(false)
 
         self.wrap_circle:Show()
         self.wrap_bandage:Show()
@@ -359,10 +374,8 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.inject_progress = 0
         self.touch_time = 0
 
-        -- Keep body silhouette visible so player can drag the syringe onto it
-        for _, img in pairs(self.limb_images) do
-            img:Show()
-        end
+        self:SetLimbUIActive(false) -- Hide the limbs and health status texts
+        self.body_target:Show() -- Show the custom body area target image
 
         self.syringe_bg:SetPosition(self.syringe_pos.x, self.syringe_pos.y)
         self.syringe_bg:Show()
@@ -481,10 +494,10 @@ function ScavMedicalScreen:OnUpdate(dt)
                 self.syringe_grabbed = false
             end
 
-            -- Collision/hitbox touch detection with body area
-            -- Center body bounds: X: [-100, 100], Y: [-120, 180]
+            -- Collision/hitbox touch detection with the new body target image
+            -- Bounding box matches scav_body_target size: X: [-135, 135], Y: [-114, 114]
             local touching_body = false
-            if math.abs(self.syringe_pos.x) < 100 and self.syringe_pos.y >= -120 and self.syringe_pos.y <= 180 then
+            if math.abs(self.syringe_pos.x) < 135 and math.abs(self.syringe_pos.y) < 114 then
                 touching_body = true
             end
 
@@ -521,6 +534,7 @@ function ScavMedicalScreen:OnUpdate(dt)
                     self.injection_active = false
                     self.syringe_bg:Hide()
                     self.syringe_liquid:Hide()
+                    self.body_target:Hide()
                     self.instructions:SetString("Введение завершено!")
                     self.owner.SoundEmitter:PlaySound("dontstarve/common/teleportato/tubedone")
 
@@ -551,6 +565,9 @@ end
 function ScavMedicalScreen:Close()
     self.wrapping_active = false
     self.injection_active = false
+    if self.body_target then
+        self.body_target:Hide()
+    end
     if TheInputProxy then
         TheInputProxy:SetCursorVisible(true) -- Restore hardware cursor
     end
