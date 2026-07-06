@@ -20,20 +20,24 @@ local function FindMedicalItem(owner, type)
     end
     
     -- 2. Check main inventory slots
-    local items = owner.components.inventory:GetItems()
-    for _, item in pairs(items) do
-        if item and item.prefab == prefab then
-            return item
+    local items = owner.components.inventory.itemslots
+    if items then
+        for _, item in pairs(items) do
+            if item and item.prefab == prefab then
+                return item
+            end
         end
     end
     
     -- 3. Check container items (like backpacks)
     for _, container in pairs(owner.components.inventory.opencontainers or {}) do
         if container and container.components.container then
-            local c_items = container.components.container:GetItems()
-            for _, item in pairs(c_items) do
-                if item and item.prefab == prefab then
-                    return item
+            local c_items = container.components.container.slots
+            if c_items then
+                for _, item in pairs(c_items) do
+                    if item and item.prefab == prefab then
+                        return item
+                    end
                 end
             end
         end
