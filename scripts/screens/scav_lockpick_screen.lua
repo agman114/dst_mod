@@ -91,7 +91,7 @@ function ScavLockpickScreen:SetupHotspotGame()
     self.click_area:SetOnClick(function()
         -- Handle individual clicks on the dial
         local mouse_pos = TheInput:GetScreenPosition()
-        local dial_pos = self.dial:GetGlobalPosition()
+        local dial_pos = self.dial:GetWorldPosition()
         
         local dx = mouse_pos.x - dial_pos.x
         local dy = mouse_pos.y - dial_pos.y
@@ -120,7 +120,7 @@ function ScavLockpickScreen:UpdateHotspotGame(dt)
 
     -- Check if mouse is hovering and holding click in a dangerous zone
     local mouse_pos = TheInput:GetScreenPosition()
-    local dial_pos = self.dial:GetGlobalPosition()
+    local dial_pos = self.dial:GetWorldPosition()
     local dx = mouse_pos.x - dial_pos.x
     local dy = mouse_pos.y - dial_pos.y
     local dist = math.sqrt(dx*dx + dy*dy)

@@ -207,7 +207,7 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.wrap_bandage:Show()
         
         -- Get screen space center of the wrapping circle (centered at torso center 0, 40)
-        local panel_pos = self.panel:GetGlobalPosition()
+        local panel_pos = self.panel:GetWorldPosition()
         local scale = self.root:GetScale()
         self.wrap_center_screen = { x = panel_pos.x, y = panel_pos.y + 40 * scale.y }
 
