@@ -378,6 +378,7 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.inject_progress = 100 - starting_charge
         self.injected_this_session = 0
         self.touch_time = 0
+        self.cooldown_triggered_this_session = false
 
         self:SetLimbUIActive(false) -- Hide the limbs and health status texts
         self.body_target:Show() -- Show the custom body area target image
@@ -522,63 +523,85 @@ function ScavMedicalScreen:OnUpdate(dt)
             end
 
             if touching_body and self.syringe_grabbed then
-                -- Touch timer accumulates
-                self.touch_time = self.touch_time + dt
-                
-                -- Check for soft/gradual overdose starting from 5.0 seconds
-                if self.touch_time >= 5.0 then
-                    self.overdose_damage_timer = (self.overdose_damage_timer or 0) + dt
-                    if self.overdose_damage_timer >= 1.0 then
-                        self.overdose_damage_timer = 0
+                local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
+                if cooldown > 0 then
+                    -- Immediately trigger overdose if trying to inject during cooldown!
+                    self.touch_time = 0
+                    self.syringe_grabbed = false
+                    
+                    -- Deal 20 immediate damage on server
+                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 20)
+                    self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                    
+                    self.instructions:SetString("ПЕРЕДОЗИРОВКА! НЕЛЬЗЯ ДЕЛАТЬ УККОЛ!")
+                    self.instructions:SetColour(1, 0.2, 0.2, 1)
+                else
+                    -- Touch timer accumulates
+                    self.touch_time = self.touch_time + dt
+                    
+                    -- Start hidden 5-minute cooldown as soon as warning threshold (4.0s) is crossed
+                    if self.touch_time >= 4.0 then
+                        if not self.cooldown_triggered_this_session then
+                            self.cooldown_triggered_this_session = true
+                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "StartOverdoseCooldown"))
+                        end
+                    end
+
+                    -- Check for gradual overdose starting from 5.0 seconds
+                    if self.touch_time >= 5.0 then
+                        self.overdose_damage_timer = (self.overdose_damage_timer or 0) + dt
+                        if self.overdose_damage_timer >= 1.0 then
+                            self.overdose_damage_timer = 0
+                            
+                            -- Save progress made up to this tick
+                            if self.injected_this_session > 0.1 then
+                                SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                                self.injected_this_session = 0
+                            end
+
+                            -- Deal 5 gradual overdose damage
+                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 5)
+                            self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                        end
                         
-                        -- Save progress made up to this tick
+                        self.instructions:SetString("ПЕРЕДОЗИРОВКА! ОТВЕДИТЕ ШПРИЦ!")
+                        self.instructions:SetColour(1, 0.2, 0.2, 1)
+                    else
+                        if self.touch_time >= 4.0 then
+                            -- Warn about imminent overdose starting from 4 seconds
+                            self.instructions:SetString(string.format("Инъекция: %d%% - ОПАСНОСТЬ ПЕРЕДОЗИРОВКИ!", math.floor(self.inject_progress)))
+                            self.instructions:SetColour(1, 0.5, 0, 1)
+                        else
+                            self.instructions:SetString(string.format("Инъекция: %d%%", math.floor(self.inject_progress)))
+                            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+                        end
+                    end
+
+                    -- White liquid is emptied (progress increases)
+                    -- 6.25% empty per second (empties in 16 seconds of cumulative contact)
+                    local old_progress = self.inject_progress
+                    self.inject_progress = math.min(100, self.inject_progress + dt * 6.25)
+                    local delta = self.inject_progress - old_progress
+                    if delta > 0 then
+                        self.injected_this_session = self.injected_this_session + delta
+                    end
+
+                    -- 100% completed
+                    if self.inject_progress >= 100 then
+                        self.injection_active = false
+                        self.syringe_bg:Hide()
+                        self.syringe_liquid:Hide()
+                        self.body_target:Hide()
+                        self.instructions:SetString("Введение завершено!")
+                        self.owner.SoundEmitter:PlaySound("dontstarve/common/teleportato/tubedone")
+
+                        -- Save final session progress
                         if self.injected_this_session > 0.1 then
                             SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
                             self.injected_this_session = 0
                         end
-
-                        -- Deal 5 gradual overdose damage
-                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 5)
-                        self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                        self:Close()
                     end
-                    
-                    self.instructions:SetString("ПЕРЕДОЗИРОВКА! ОТВЕДИТЕ ШПРИЦ!")
-                    self.instructions:SetColour(1, 0.2, 0.2, 1)
-                else
-                    if self.touch_time >= 4.0 then
-                        -- Warn about imminent overdose starting from 4 seconds
-                        self.instructions:SetString(string.format("Инъекция: %d%% - ОПАСНОСТЬ ПЕРЕДОЗИРОВКИ!", math.floor(self.inject_progress)))
-                        self.instructions:SetColour(1, 0.5, 0, 1)
-                    else
-                        self.instructions:SetString(string.format("Инъекция: %d%%", math.floor(self.inject_progress)))
-                        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
-                    end
-                end
-
-                -- White liquid is emptied (progress increases)
-                -- 6.25% empty per second (empties in 16 seconds of cumulative contact)
-                local old_progress = self.inject_progress
-                self.inject_progress = math.min(100, self.inject_progress + dt * 6.25)
-                local delta = self.inject_progress - old_progress
-                if delta > 0 then
-                    self.injected_this_session = self.injected_this_session + delta
-                end
-
-                -- 100% completed
-                if self.inject_progress >= 100 then
-                    self.injection_active = false
-                    self.syringe_bg:Hide()
-                    self.syringe_liquid:Hide()
-                    self.body_target:Hide()
-                    self.instructions:SetString("Введение завершено!")
-                    self.owner.SoundEmitter:PlaySound("dontstarve/common/teleportato/tubedone")
-
-                    -- Save final session progress
-                    if self.injected_this_session > 0.1 then
-                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
-                        self.injected_this_session = 0
-                    end
-                    self:Close()
                 end
             else
                 -- Pulling it away resets the touch timer (avoiding overdose) and saves progress
@@ -589,6 +612,7 @@ function ScavMedicalScreen:OnUpdate(dt)
                     end
                 end
                 self.touch_time = 0
+                self.cooldown_triggered_this_session = false
                 self.instructions:SetString(self.syringe_grabbed and "Перетяните шприц в зону снизу!" or "Зажмите и перетяните шприц в зону снизу!")
                 self.instructions:SetColour(0.8, 0.8, 0.8, 1)
             end

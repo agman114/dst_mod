@@ -11,6 +11,7 @@ local ScavHealth = Class(function(self, inst)
         right_leg = { health = 100, max = 100, broken = false, bleeding = false },
     }
     self.poisoned = false
+    self.overdose_cooldown = 0
 
     -- Hook into standard health
     self.inst:ListenForEvent("healthdelta", function(inst, data)
@@ -60,6 +61,7 @@ function ScavHealth:SyncToNetVars()
     if inst.scav_bleeding_right_leg then inst.scav_bleeding_right_leg:set(self.limbs.right_leg.bleeding) end
 
     if inst.scav_poisoned then inst.scav_poisoned:set(self.poisoned) end
+    if inst.scav_overdose_cooldown then inst.scav_overdose_cooldown:set(self.overdose_cooldown or 0) end
 end
 
 -- Distribute incoming damage to limbs randomly
@@ -199,6 +201,10 @@ function ScavHealth:OnUpdate(dt)
         else
             self.low_sanity_timer = 0
         end
+    end
+
+    if self.overdose_cooldown and self.overdose_cooldown > 0 then
+        self.overdose_cooldown = math.max(0, self.overdose_cooldown - 1.0)
     end
 
     self:SyncToNetVars()

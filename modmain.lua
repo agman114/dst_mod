@@ -143,6 +143,13 @@ AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player, amount)
     end
 end)
 
+AddModRPCHandler("MEGACALLLMOD", "StartOverdoseCooldown", function(player)
+    if player and player:IsValid() and player.components.scav_health then
+        player.components.scav_health.overdose_cooldown = 300 -- 5 minutes
+        player.components.scav_health:SyncToNetVars()
+    end
+end)
+
 AddModRPCHandler("MEGACALLLMOD", "UpdateSyringe", function(player, item, injected_amt)
     if player and player:IsValid() and item and item:IsValid() then
         if player.components.inventory and player.components.inventory:Has(item.prefab, 1) then
@@ -150,6 +157,9 @@ AddModRPCHandler("MEGACALLLMOD", "UpdateSyringe", function(player, item, injecte
                 local current = item.scav_charge:value()
                 local new_charge = math.max(0, current - injected_amt)
                 item.scav_charge:set(new_charge)
+                if item.components.finiteuses then
+                    item.components.finiteuses:SetUses(math.ceil(new_charge))
+                end
                 
                 -- Restore sanity proportionally to the injected amount
                 if player.components.sanity and injected_amt > 0 then
