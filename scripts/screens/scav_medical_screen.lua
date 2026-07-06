@@ -524,7 +524,7 @@ function ScavMedicalScreen:OnUpdate(dt)
 
             if touching_body and self.syringe_grabbed then
                 local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
-                if cooldown > 0 then
+                if cooldown > 0 and not self.cooldown_triggered_this_session then
                     -- Immediately trigger fatal overdose if trying to inject during cooldown!
                     self.touch_time = 0
                     self.syringe_grabbed = false
