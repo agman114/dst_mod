@@ -156,6 +156,24 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.wrap_bandage:SetSize(65, 65)
     self.wrap_bandage:Hide()
 
+    -- Syringe minigame variables & assets
+    self.injection_active = false
+    self.inject_start_y = nil
+
+    -- Liquid rectangle (drawn BEHIND the syringe outline)
+    self.syringe_liquid = self.panel:AddChild(Image("images/global.xml", "square.tex"))
+    self.syringe_liquid:SetColour(0.2, 0.9, 0.4, 0.6) -- Semi-transparent green
+    self.syringe_liquid:SetSize(38, 180)
+    self.syringe_liquid:SetPosition(0, 20)
+    self.syringe_liquid:Hide()
+
+    -- Syringe outline (drawn on top of the liquid)
+    local syringe_atlas, syringe_tex = GetUIAsset("scav_syringe", "images/global_redux.xml", "button_square.tex")
+    self.syringe_bg = self.panel:AddChild(Image(syringe_atlas, syringe_tex))
+    self.syringe_bg:SetPosition(0, 40)
+    self.syringe_bg:SetSize(66, 360)
+    self.syringe_bg:Hide()
+
     -- Custom Hand Cursor
     local cursor_atlas, cursor_tex = GetUIAsset("Arm-removebg-preview", "images/global_redux.xml", "button_square.tex")
     self.hand_cursor = self.root:AddChild(Image(cursor_atlas, cursor_tex))
@@ -331,25 +349,39 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         end)
     
     elseif self.item_type == "antidote" then
-        if not is_poisoned then
-            self.instructions:SetString("Вы не отравлены, но вкалываем противоядие для теста...")
-            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
-        else
-            self.instructions:SetString("Вкалываем противоядие...")
-            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+        self.injection_active = true
+        self.wrapping_limb = limb_name
+        self.inject_start_y = nil
+
+        for _, img in pairs(self.limb_images) do
+            img:Hide()
         end
-        
-        self.owner:DoTaskInTime(1.0, function()
-            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, limb_name)
-            self:Close()
-        end)
+
+        self.syringe_bg:Show()
+        self.syringe_liquid:Show()
+        self.syringe_liquid:SetSize(38, 180)
+        self.syringe_liquid:SetPosition(0, 20)
+
+        if is_poisoned then
+            self.instructions:SetString("Зажмите ЛКМ и тяните мышь ВНИЗ для укола!")
+            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+        else
+            self.instructions:SetString("Вы не отравлены, но вводим противоядие для теста!")
+            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+        end
+
+        if TheInputProxy then
+            TheInputProxy:SetCursorVisible(false)
+        end
+        self.hand_cursor:Show()
+        self.was_clicked = nil
     end
 end
 
 function ScavMedicalScreen:OnUpdate(dt)
     self:UpdateLimbHealth()
 
-    if self.wrapping_active then
+    if self.wrapping_active or self.injection_active then
         -- Follow mouse with custom hand cursor
         local w, h = TheSim:GetScreenSize()
         local mouse_pos = TheInput:GetScreenPosition()
@@ -370,61 +402,107 @@ function ScavMedicalScreen:OnUpdate(dt)
         local mouse_x = mouse_pos.x
         local mouse_y = mouse_pos.y
 
-        if TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
-            -- Angle calculations relative to center of wrapping circle
-            local dx = mouse_x - self.wrap_center_screen.x
-            local dy = mouse_y - self.wrap_center_screen.y
-            local dist = math.sqrt(dx*dx + dy*dy)
+        if self.wrapping_active then
+            if TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
+                -- Angle calculations relative to center of wrapping circle
+                local dx = mouse_x - self.wrap_center_screen.x
+                local dy = mouse_y - self.wrap_center_screen.y
+                local dist = math.sqrt(dx*dx + dy*dy)
 
-            -- Just require the player to move mouse in circles around center (avoid exact radius restriction)
-            if dist > 10 then
-                local angle = math.atan2(dy, dx)
-                
-                -- Position bandage visual along the circle path (always stays on the visual guide)
-                local bx = 110 * math.cos(angle)
-                local by = 40 + 110 * math.sin(angle)
-                self.wrap_bandage:SetPosition(bx, by)
-
-                if self.wrap_angle_prev then
-                    local diff = angle - self.wrap_angle_prev
-                    while diff > math.pi do diff = diff - 2*math.pi end
-                    while diff < -math.pi do diff = diff + 2*math.pi end
-
-                    self.wrap_accumulated_angle = self.wrap_accumulated_angle + diff
+                -- Just require the player to move mouse in circles around center (avoid exact radius restriction)
+                if dist > 10 then
+                    local angle = math.atan2(dy, dx)
                     
-                    local progress_ratio = math.min(1.0, math.abs(self.wrap_accumulated_angle) / (3 * 2 * math.pi))
-                    local progress = math.min(100, math.floor(progress_ratio * 100))
-                    self.instructions:SetString(string.format("Намотка бинта: %d%%", progress))
+                    -- Position bandage visual along the circle path (always stays on the visual guide)
+                    local bx = 110 * math.cos(angle)
+                    local by = 40 + 110 * math.sin(angle)
+                    self.wrap_bandage:SetPosition(bx, by)
 
-                    -- Bandage shrinks dynamically as it is used
-                    local size = 65 - 35 * progress_ratio
-                    self.wrap_bandage:SetSize(size, size)
+                    if self.wrap_angle_prev then
+                        local diff = angle - self.wrap_angle_prev
+                        while diff > math.pi do diff = diff - 2*math.pi end
+                        while diff < -math.pi do diff = diff + 2*math.pi end
 
-                    -- 3 rotations completed
-                    if math.abs(self.wrap_accumulated_angle) >= (3 * 2 * math.pi) then
-                        self.wrapping_active = false
-                        self.wrap_circle:Hide()
-                        self.wrap_bandage:Hide()
-                        self.instructions:SetString("Перевязка завершена!")
-                        self.owner.SoundEmitter:PlaySound("dontstarve/common/cloth_rippage")
+                        self.wrap_accumulated_angle = self.wrap_accumulated_angle + diff
+                        
+                        local progress_ratio = math.min(1.0, math.abs(self.wrap_accumulated_angle) / (3 * 2 * math.pi))
+                        local progress = math.min(100, math.floor(progress_ratio * 100))
+                        self.instructions:SetString(string.format("Намотка бинта: %d%%", progress))
 
-                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.wrapping_limb)
-                        self:Close()
+                        -- Bandage shrinks dynamically as it is used
+                        local size = 65 - 35 * progress_ratio
+                        self.wrap_bandage:SetSize(size, size)
+
+                        -- 3 rotations completed
+                        if math.abs(self.wrap_accumulated_angle) >= (3 * 2 * math.pi) then
+                            self.wrapping_active = false
+                            self.wrap_circle:Hide()
+                            self.wrap_bandage:Hide()
+                            self.instructions:SetString("Перевязка завершена!")
+                            self.owner.SoundEmitter:PlaySound("dontstarve/common/cloth_rippage")
+
+                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.wrapping_limb)
+                            self:Close()
+                        end
                     end
+                    self.wrap_angle_prev = angle
                 end
-                self.wrap_angle_prev = angle
+            else
+                self.wrap_angle_prev = nil
+                self.wrap_accumulated_angle = math.max(0, self.wrap_accumulated_angle - dt * 2.0)
+                self.instructions:SetString("Зажмите мышь для намотки!")
+                self.instructions:SetColour(1, 0.5, 0.5, 1)
             end
-        else
-            self.wrap_angle_prev = nil
-            self.wrap_accumulated_angle = math.max(0, self.wrap_accumulated_angle - dt * 2.0)
-            self.instructions:SetString("Зажмите мышь для намотки!")
-            self.instructions:SetColour(1, 0.5, 0.5, 1)
+        
+        elseif self.injection_active then
+            if TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
+                if not self.inject_start_y then
+                    self.inject_start_y = mouse_y
+                end
+
+                -- Dragging downwards increases progress
+                local dy = self.inject_start_y - mouse_y
+                local progress_ratio = math.max(0, math.min(1.0, dy / 200)) -- Drag 200 pixels down
+                
+                local progress = math.min(100, math.floor(progress_ratio * 100))
+                self.instructions:SetString(string.format("Введение препарата: %d%%", progress))
+
+                -- Liquid is emptied as progress increases
+                local liquid_ratio = 1.0 - progress_ratio
+                local fill_max_h = 180
+                local fill_min_y = -70
+                local h = fill_max_h * liquid_ratio
+                local y = fill_min_y + h / 2
+                self.syringe_liquid:SetSize(38, h)
+                self.syringe_liquid:SetPosition(0, y)
+
+                -- 100% completed
+                if progress_ratio >= 1.0 then
+                    self.injection_active = false
+                    self.syringe_bg:Hide()
+                    self.syringe_liquid:Hide()
+                    self.instructions:SetString("Инъекция завершена!")
+                    self.owner.SoundEmitter:PlaySound("dontstarve/common/teleportato/tubedone")
+
+                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.wrapping_limb)
+                    self:Close()
+                end
+            else
+                self.inject_start_y = nil
+                self.instructions:SetString("Зажмите ЛКМ и тяните мышь ВНИЗ для укола!")
+                self.instructions:SetColour(1, 0.5, 0.5, 1)
+                
+                -- Reset liquid back to full
+                self.syringe_liquid:SetSize(38, 180)
+                self.syringe_liquid:SetPosition(0, 20)
+            end
         end
     end
 end
 
 function ScavMedicalScreen:Close()
     self.wrapping_active = false
+    self.injection_active = false
     if TheInputProxy then
         TheInputProxy:SetCursorVisible(true) -- Restore hardware cursor
     end
