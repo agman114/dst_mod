@@ -158,14 +158,12 @@ if not TheNet:IsDedicated() then
             local TheFrontEnd = GLOBAL.TheFrontEnd
             local active_screen = TheFrontEnd:GetActiveScreen()
             
-            -- Prevent opening if chat is active, or if another UI screen is open
-            if TheFrontEnd:IsChatSystemActive() then
+            if active_screen then
+                if active_screen.name == "ScavMedicalScreen" then
+                    active_screen:Close()
+                end
                 return
-            end
-            
-            if active_screen and active_screen.name == "ScavMedicalScreen" then
-                active_screen:Close()
-            elseif not active_screen then
+            else
                 local ScavMedicalScreen = require("screens/scav_medical_screen")
                 TheFrontEnd:PushScreen(ScavMedicalScreen(player))
             end
