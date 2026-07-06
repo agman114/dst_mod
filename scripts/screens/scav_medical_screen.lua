@@ -525,17 +525,24 @@ function ScavMedicalScreen:OnUpdate(dt)
             if touching_body and self.syringe_grabbed then
                 local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
                 if cooldown > 0 and not self.cooldown_triggered_this_session then
-                    -- Immediately trigger fatal overdose if trying to inject during cooldown!
-                    self.touch_time = 0
-                    self.syringe_grabbed = false
+                    -- They are injecting during active cooldown!
+                    -- Accumulate damage timer to deal 5 damage every 1.0 second
+                    self.cooldown_damage_timer = (self.cooldown_damage_timer or 0) + dt
+                    if self.cooldown_damage_timer >= 1.0 then
+                        self.cooldown_damage_timer = 0
+                        
+                        -- Save progress made up to this tick
+                        if self.injected_this_session > 0.1 then
+                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                            self.injected_this_session = 0
+                        end
+
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 5)
+                        self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                    end
                     
-                    -- Deal 100 immediate one-shot damage on server
-                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 100)
-                    self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
-                    
-                    self.instructions:SetString("ПЕРЕДОЗИРОВКА! НЕЛЬЗЯ ДЕЛАТЬ УККОЛ!")
+                    self.instructions:SetString(string.format("ПЕРЕДОЗИРОВКА! -5 ХП/сек! (Откат: %d сек)", math.ceil(cooldown)))
                     self.instructions:SetColour(1, 0.2, 0.2, 1)
-                    self:Close()
                 else
                     -- Touch timer accumulates
                     self.touch_time = self.touch_time + dt
@@ -602,13 +609,14 @@ function ScavMedicalScreen:OnUpdate(dt)
                 end
             else
                 -- Pulling it away resets the touch timer (avoiding overdose) and saves progress
-                if self.touch_time > 0 then
+                if self.touch_time > 0 or (self.cooldown_damage_timer and self.cooldown_damage_timer > 0) then
                     if self.injected_this_session > 0.1 then
                         SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
                         self.injected_this_session = 0
                     end
                 end
                 self.touch_time = 0
+                self.cooldown_damage_timer = 0
                 self.cooldown_triggered_this_session = false
 
                 local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
