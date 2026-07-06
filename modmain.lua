@@ -142,6 +142,35 @@ AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player)
     end
 end)
 
+AddModRPCHandler("MEGACALLLMOD", "UpdateSyringe", function(player, item, injected_amt)
+    if player and player:IsValid() and item and item:IsValid() then
+        if player.components.inventory and player.components.inventory:Has(item.prefab, 1) then
+            if item.scav_charge then
+                local current = item.scav_charge:value()
+                local new_charge = math.max(0, current - injected_amt)
+                item.scav_charge:set(new_charge)
+                
+                -- Restore sanity proportionally to the injected amount
+                if player.components.sanity and injected_amt > 0 then
+                    local sanity_gain = (injected_amt / 100) * player.components.sanity.max
+                    player.components.sanity:DoDelta(sanity_gain)
+                end
+
+                -- Cure poison if they injected at least 25%
+                if injected_amt >= 25.0 and player.components.scav_health then
+                    player.components.scav_health.poisoned = false
+                    player.components.scav_health:SyncToNetVars()
+                end
+                
+                -- Consume the item if it has no charge left (e.g. <= 0.5)
+                if new_charge <= 0.5 then
+                    player.components.inventory:ConsumeByName(item.prefab, 1)
+                end
+            end
+        end
+    end
+end)
+
 AddModRPCHandler("MEGACALLLMOD", "LockpickSuccess", function(player, chest)
     if player and player:IsValid() and chest and chest:IsValid() then
         if chest.scav_locked and chest.scav_locked:value() then

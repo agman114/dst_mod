@@ -35,8 +35,10 @@ local function MakeItem(name, bank, build, anim, fn_custom)
             inst.components.inventoryitem:ChangeImageName("scav_bandage")
         end
         
-        inst:AddComponent("stackable")
-        inst.components.stackable.maxsize = 10
+        if name ~= "scav_antidote" then
+            inst:AddComponent("stackable")
+            inst.components.stackable.maxsize = 10
+        end
 
         -- We use a custom useable component to trigger UI on the client
         inst:AddComponent("useableitem")
@@ -54,6 +56,10 @@ end
 
 local function antidote_custom(inst)
     inst.scav_medical_type = "antidote"
+    inst.scav_charge = GLOBAL.net_float(inst.GUID, "scav_charge", "scav_chargedirty")
+    if GLOBAL.TheWorld.ismastersim then
+        inst.scav_charge:set(100.0)
+    end
 end
 
 local function splint_custom(inst)

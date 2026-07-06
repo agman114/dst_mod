@@ -180,8 +180,8 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     -- Syringe target body part image (dark black rectangle from the chat)
     local target_atlas, target_tex = GetUIAsset("scav_body_target", "images/global_redux.xml", "button_square.tex")
     self.body_target = self.panel:AddChild(Image(target_atlas, target_tex))
-    self.body_target:SetPosition(0, 0)
-    self.body_target:SetSize(270, 228)
+    self.body_target:SetPosition(0, -130)
+    self.body_target:SetSize(450, 180)
     self.body_target:Hide()
 
     -- Custom Hand Cursor
@@ -373,7 +373,10 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.wrapping_limb = limb_name
         self.syringe_pos = { x = 0, y = 160 }
         self.syringe_grabbed = false
-        self.inject_progress = 0
+        
+        local starting_charge = self.item and self.item.scav_charge and self.item.scav_charge:value() or 100
+        self.inject_progress = 100 - starting_charge
+        self.injected_this_session = 0
         self.touch_time = 0
 
         self:SetLimbUIActive(false) -- Hide the limbs and health status texts
@@ -382,11 +385,19 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.syringe_bg:SetPosition(self.syringe_pos.x, self.syringe_pos.y)
         self.syringe_bg:Show()
         
-        self.syringe_liquid:SetSize(38, 180)
-        self.syringe_liquid:SetPosition(self.syringe_pos.x, self.syringe_pos.y + 20)
+        -- Set liquid level based on starting charge
+        local progress_ratio = self.inject_progress / 100
+        local liquid_ratio = 1.0 - progress_ratio
+        local fill_max_h = 180
+        local fill_min_y = -70
+        local h = fill_max_h * liquid_ratio
+        local y = fill_min_y + h / 2
+
+        self.syringe_liquid:SetSize(38, h)
+        self.syringe_liquid:SetPosition(self.syringe_pos.x, self.syringe_pos.y - 40 + y)
         self.syringe_liquid:Show()
 
-        self.instructions:SetString("Зажмите шприц и перетяните его на тело персонажа!")
+        self.instructions:SetString("Зажмите шприц и перетяните его на область снизу!")
         self.instructions:SetColour(0.3, 0.9, 0.3, 1)
 
         if TheInputProxy then
@@ -493,13 +504,18 @@ function ScavMedicalScreen:OnUpdate(dt)
                     self.syringe_bg:SetPosition(self.syringe_pos.x, self.syringe_pos.y)
                 end
             else
+                -- Released click: save progress made during this click session
+                if self.injected_this_session > 0.1 then
+                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                    self.injected_this_session = 0
+                end
                 self.syringe_grabbed = false
             end
 
-            -- Collision/hitbox touch detection with the new body target image
-            -- Bounding box matches scav_body_target size: X: [-135, 135], Y: [-114, 114]
+            -- Collision/hitbox touch detection with the new stretched body target image at the bottom
+            -- Bounding box matches scav_body_target size: X: [-225, 225], Y: [-220, -40] (center: 0, -130)
             local touching_body = false
-            if math.abs(self.syringe_pos.x) < 135 and math.abs(self.syringe_pos.y) < 114 then
+            if math.abs(self.syringe_pos.x) < 225 and self.syringe_pos.y >= -220 and self.syringe_pos.y <= -40 then
                 touching_body = true
             end
 
@@ -511,6 +527,12 @@ function ScavMedicalScreen:OnUpdate(dt)
                 if self.touch_time >= 1.0 then
                     self.touch_time = 0 -- Reset timer to tick again if they don't pull it out
                     
+                    -- Save progress made up to overdose before applying damage
+                    if self.injected_this_session > 0.1 then
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                        self.injected_this_session = 0
+                    end
+
                     SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"))
                     
                     self.instructions:SetString("ПЕРЕДОЗИРОВКА! ОТВЕДИТЕ ШПРИЦ!")
@@ -529,7 +551,12 @@ function ScavMedicalScreen:OnUpdate(dt)
 
                 -- White liquid is emptied (progress increases)
                 -- 25% empty per second (empties in 4 seconds of cumulative contact)
+                local old_progress = self.inject_progress
                 self.inject_progress = math.min(100, self.inject_progress + dt * 25)
+                local delta = self.inject_progress - old_progress
+                if delta > 0 then
+                    self.injected_this_session = self.injected_this_session + delta
+                end
 
                 -- 100% completed
                 if self.inject_progress >= 100 then
@@ -540,13 +567,23 @@ function ScavMedicalScreen:OnUpdate(dt)
                     self.instructions:SetString("Введение завершено!")
                     self.owner.SoundEmitter:PlaySound("dontstarve/common/teleportato/tubedone")
 
-                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.wrapping_limb)
+                    -- Save final session progress
+                    if self.injected_this_session > 0.1 then
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                        self.injected_this_session = 0
+                    end
                     self:Close()
                 end
             else
-                -- Pulling it away resets the touch timer (avoiding overdose)
+                -- Pulling it away resets the touch timer (avoiding overdose) and saves progress
+                if self.touch_time > 0 then
+                    if self.injected_this_session > 0.1 then
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                        self.injected_this_session = 0
+                    end
+                end
                 self.touch_time = 0
-                self.instructions:SetString(self.syringe_grabbed and "Перетяните шприц на тело персонажа!" or "Зажмите и тащите шприц на тело!")
+                self.instructions:SetString(self.syringe_grabbed and "Перетяните шприц в зону снизу!" or "Зажмите и перетяните шприц в зону снизу!")
                 self.instructions:SetColour(0.8, 0.8, 0.8, 1)
             end
 
@@ -567,6 +604,10 @@ end
 function ScavMedicalScreen:Close()
     self.wrapping_active = false
     self.injection_active = false
+    if self.injected_this_session and self.injected_this_session > 0.1 then
+        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+        self.injected_this_session = 0
+    end
     if self.body_target then
         self.body_target:Hide()
     end
