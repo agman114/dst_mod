@@ -65,6 +65,8 @@ Assets = {
     Asset("IMAGE", "images/Arm-removebg-preview.tex"),
     Asset("ATLAS", "images/ArmFist-removebg-preview.xml"),
     Asset("IMAGE", "images/ArmFist-removebg-preview.tex"),
+    Asset("ATLAS", "images/scav_bandage.xml"),
+    Asset("IMAGE", "images/scav_bandage.tex"),
 }
 
 -- Prefab files to load

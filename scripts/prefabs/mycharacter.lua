@@ -7,6 +7,7 @@ local assets = {
 
 -- Custom starting inventory items
 local start_inv = {
+    "scav_bandage",
 }
 
 -- This is called both on client and server

@@ -30,6 +30,10 @@ local function MakeItem(name, bank, build, anim, fn_custom)
 
         inst:AddComponent("inspectable")
         inst:AddComponent("inventoryitem")
+        if name == "scav_bandage" then
+            inst.components.inventoryitem.atlasname = "images/scav_bandage.xml"
+            inst.components.inventoryitem:ChangeImageName("scav_bandage")
+        end
         
         inst:AddComponent("stackable")
         inst.components.stackable.maxsize = 10
