@@ -610,8 +610,15 @@ function ScavMedicalScreen:OnUpdate(dt)
                 end
                 self.touch_time = 0
                 self.cooldown_triggered_this_session = false
-                self.instructions:SetString(self.syringe_grabbed and "Перетяните шприц в зону снизу!" or "Зажмите и перетяните шприц в зону снизу!")
-                self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+
+                local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
+                if cooldown > 0 then
+                    self.instructions:SetString(string.format("ОПАСНОСТЬ ПЕРЕДОЗИРОВКИ! Подождите: %d сек", math.ceil(cooldown)))
+                    self.instructions:SetColour(1, 0.5, 0, 1)
+                else
+                    self.instructions:SetString(self.syringe_grabbed and "Перетяните шприц в зону снизу!" or "Зажмите и перетяните шприц в зону снизу!")
+                    self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+                end
             end
 
             -- Update white liquid level and position (trimmed from top relative to syringe position)
