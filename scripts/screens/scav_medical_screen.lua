@@ -512,10 +512,12 @@ function ScavMedicalScreen:OnUpdate(dt)
                 self.syringe_grabbed = false
             end
 
-            -- Collision/hitbox touch detection with the new stretched body target image at the bottom
+            -- Collision/hitbox touch detection using the needle tip (bottom of the syringe)
             -- Bounding box matches scav_body_target size: X: [-225, 225], Y: [-220, -40] (center: 0, -130)
+            local needle_x = self.syringe_pos.x
+            local needle_y = self.syringe_pos.y - 180 -- Needle tip is 180px below center of syringe
             local touching_body = false
-            if math.abs(self.syringe_pos.x) < 225 and self.syringe_pos.y >= -220 and self.syringe_pos.y <= -40 then
+            if math.abs(needle_x) < 225 and needle_y >= -220 and needle_y <= -40 then
                 touching_body = true
             end
 
@@ -550,9 +552,9 @@ function ScavMedicalScreen:OnUpdate(dt)
                 end
 
                 -- White liquid is emptied (progress increases)
-                -- 25% empty per second (empties in 4 seconds of cumulative contact)
+                -- 10% empty per second (empties in 10 seconds of cumulative contact)
                 local old_progress = self.inject_progress
-                self.inject_progress = math.min(100, self.inject_progress + dt * 25)
+                self.inject_progress = math.min(100, self.inject_progress + dt * 10)
                 local delta = self.inject_progress - old_progress
                 if delta > 0 then
                     self.injected_this_session = self.injected_this_session + delta
