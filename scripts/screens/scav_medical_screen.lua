@@ -115,10 +115,10 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     -- White circle (bandage visual)
     local bandage_atlas, bandage_tex = GetUIAsset("Bondage-removebg-preview", "images/global_redux.xml", "button_square.tex")
     self.wrap_bandage = self.panel:AddChild(Image(bandage_atlas, bandage_tex))
-    self.wrap_bandage:SetSize(40, 40)
+    self.wrap_bandage:SetSize(65, 65)
     self.wrap_bandage:Hide()
 
-    -- Custom Hand Cursor (hidden by default, only visible during minigames)
+    -- Custom Hand Cursor
     local cursor_atlas, cursor_tex = GetUIAsset("Arm-removebg-preview", "images/global_redux.xml", "button_square.tex")
     self.hand_cursor = self.root:AddChild(Image(cursor_atlas, cursor_tex))
     self.hand_cursor:SetScale(0.8, 0.8)
@@ -205,6 +205,7 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
 
         self.wrap_circle:Show()
         self.wrap_bandage:Show()
+        self.wrap_bandage:SetSize(65, 65) -- Reset to full size when starting
         
         -- Get screen space center of the wrapping circle (centered at torso center 0, 40)
         local panel_pos = self.panel:GetWorldPosition()
@@ -295,11 +296,11 @@ function ScavMedicalScreen:OnUpdate(dt)
             local dy = mouse_y - self.wrap_center_screen.y
             local dist = math.sqrt(dx*dx + dy*dy)
 
-            -- Constrain bandage rotation radius to 110 pixels (matching Circle PNG radius)
-            if dist > 20 and dist < 220 then
+            -- Just require the player to move mouse in circles around center (avoid exact radius restriction)
+            if dist > 10 then
                 local angle = math.atan2(dy, dx)
                 
-                -- Position bandage visual along the circle path
+                -- Position bandage visual along the circle path (always stays on the visual guide)
                 local bx = 110 * math.cos(angle)
                 local by = 40 + 110 * math.sin(angle)
                 self.wrap_bandage:SetPosition(bx, by)
@@ -311,8 +312,13 @@ function ScavMedicalScreen:OnUpdate(dt)
 
                     self.wrap_accumulated_angle = self.wrap_accumulated_angle + diff
                     
-                    local progress = math.min(100, math.floor(math.abs(self.wrap_accumulated_angle) / (3 * 2 * math.pi) * 100))
+                    local progress_ratio = math.min(1.0, math.abs(self.wrap_accumulated_angle) / (3 * 2 * math.pi))
+                    local progress = math.min(100, math.floor(progress_ratio * 100))
                     self.instructions:SetString(string.format("Намотка бинта: %d%%", progress))
+
+                    -- Bandage shrinks dynamically as it is used
+                    local size = 65 - 35 * progress_ratio
+                    self.wrap_bandage:SetSize(size, size)
 
                     -- 3 rotations completed
                     if math.abs(self.wrap_accumulated_angle) >= (3 * 2 * math.pi) then
