@@ -525,51 +525,48 @@ function ScavMedicalScreen:OnUpdate(dt)
             if touching_body and self.syringe_grabbed then
                 local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
                 if cooldown > 0 then
-                    -- Immediately trigger overdose if trying to inject during cooldown!
+                    -- Immediately trigger fatal overdose if trying to inject during cooldown!
                     self.touch_time = 0
                     self.syringe_grabbed = false
                     
-                    -- Deal 20 immediate damage on server
-                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 20)
+                    -- Deal 100 immediate one-shot damage on server
+                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 100)
                     self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
                     
                     self.instructions:SetString("ПЕРЕДОЗИРОВКА! НЕЛЬЗЯ ДЕЛАТЬ УККОЛ!")
                     self.instructions:SetColour(1, 0.2, 0.2, 1)
+                    self:Close()
                 else
                     -- Touch timer accumulates
                     self.touch_time = self.touch_time + dt
                     
-                    -- Start hidden 5-minute cooldown as soon as warning threshold (4.0s) is crossed
-                    if self.touch_time >= 4.0 then
+                    -- Start hidden 5-minute cooldown as soon as warning threshold (2.0s) is crossed
+                    if self.touch_time >= 2.0 then
                         if not self.cooldown_triggered_this_session then
                             self.cooldown_triggered_this_session = true
                             SendModRPCToServer(GetModRPC("MEGACALLLMOD", "StartOverdoseCooldown"))
                         end
                     end
 
-                    -- Check for gradual overdose starting from 5.0 seconds
+                    -- Check for fatal overdose (continuous contact >= 5.0 seconds - i.e. 3 seconds after warning)
                     if self.touch_time >= 5.0 then
-                        self.overdose_damage_timer = (self.overdose_damage_timer or 0) + dt
-                        if self.overdose_damage_timer >= 5.0 then
-                            self.overdose_damage_timer = 0
-                            
-                            -- Save progress made up to this tick
-                            if self.injected_this_session > 0.1 then
-                                SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
-                                self.injected_this_session = 0
-                            end
-
-                            -- Deal 5 gradual overdose damage
-                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 5)
-                            self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
-                        end
+                        self.touch_time = 0
+                        self.syringe_grabbed = false
                         
-                        self.instructions:SetString("ПЕРЕДОЗИРОВКА! ОТВЕДИТЕ ШПРИЦ!")
-                        self.instructions:SetColour(1, 0.2, 0.2, 1)
+                        -- Save progress made up to overdose before dying
+                        if self.injected_this_session > 0.1 then
+                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                            self.injected_this_session = 0
+                        end
+
+                        -- Deal 100 one-shot damage on server
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 100)
+                        self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                        self:Close()
                     else
-                        if self.touch_time >= 4.0 then
-                            -- Warn about imminent overdose starting from 4 seconds
-                            self.instructions:SetString(string.format("Инъекция: %d%% - ОПАСНОСТЬ ПЕРЕДОЗИРОВКИ!", math.floor(self.inject_progress)))
+                        if self.touch_time >= 2.0 then
+                            -- Warn about imminent overdose (2.0s to 5.0s is 3 seconds)
+                            self.instructions:SetString(string.format("Инъекция: %d%% - ВНИМАНИЕ: РИСК ПЕРЕДОЗИРОВКИ!", math.floor(self.inject_progress)))
                             self.instructions:SetColour(1, 0.5, 0, 1)
                         else
                             self.instructions:SetString(string.format("Инъекция: %d%%", math.floor(self.inject_progress)))
