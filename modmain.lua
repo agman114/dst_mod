@@ -190,7 +190,7 @@ if not TheNet:IsDedicated() then
             local active_screen = TheFrontEnd:GetActiveScreen()
             
             -- Prevent opening if chat or console is active
-            if TheFrontEnd:IsChatSystemActive() then
+            if active_screen and (active_screen.name == "ChatInputScreen" or active_screen.name == "ConsoleScreen") then
                 return
             end
             
