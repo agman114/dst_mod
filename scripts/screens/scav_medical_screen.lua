@@ -242,6 +242,8 @@ function ScavMedicalScreen:UpdateLimbHealth()
             txt:SetColour(data.colour[1], data.colour[2], data.colour[3], data.colour[4])
         end
     end
+end
+
 function ScavMedicalScreen:SetLimbUIActive(active)
     -- Hide/show limbs
     for _, img in pairs(self.limb_images) do
