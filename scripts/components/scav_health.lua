@@ -179,6 +179,28 @@ function ScavHealth:OnUpdate(dt)
         end
     end
 
+    -- Self-damage from extremely low sanity (voices in head)
+    if self.inst.components.sanity then
+        local sanity_pct = self.inst.components.sanity:GetPercent()
+        if sanity_pct < 0.15 then
+            self.low_sanity_timer = (self.low_sanity_timer or 0) + 1.0
+            if self.low_sanity_timer >= 10.0 then
+                self.low_sanity_timer = 0
+                if self.inst.components.health and not self.inst.components.health:IsDead() then
+                    self.inst.components.health:DoDelta(-10, false, "sanity_self_harm")
+                    if self.inst.components.talker then
+                        self.inst.components.talker:Say("Голоса... Они заставляют меня причинять себе боль!")
+                    end
+                    if self.inst.SoundEmitter then
+                        self.inst.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                    end
+                end
+            end
+        else
+            self.low_sanity_timer = 0
+        end
+    end
+
     self:SyncToNetVars()
     self:ApplyEffects()
 end

@@ -158,19 +158,22 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
 
     -- Syringe minigame variables & assets
     self.injection_active = false
-    self.inject_start_y = nil
+    self.syringe_pos = { x = 0, y = 160 }
+    self.syringe_grabbed = false
+    self.inject_progress = 0
+    self.touch_time = 0
 
-    -- Liquid rectangle (drawn BEHIND the syringe outline)
+    -- Liquid rectangle (drawn BEHIND the syringe outline) - WHITE liquid
     self.syringe_liquid = self.panel:AddChild(Image("images/global.xml", "square.tex"))
-    self.syringe_liquid:SetTint(0.2, 0.9, 0.4, 0.6) -- Semi-transparent green
+    self.syringe_liquid:SetTint(1, 1, 1, 0.9) -- Solid white liquid
     self.syringe_liquid:SetSize(38, 180)
-    self.syringe_liquid:SetPosition(0, 20)
+    self.syringe_liquid:SetPosition(self.syringe_pos.x, self.syringe_pos.y + 20)
     self.syringe_liquid:Hide()
 
     -- Syringe outline (drawn on top of the liquid)
     local syringe_atlas, syringe_tex = GetUIAsset("scav_syringe", "images/global_redux.xml", "button_square.tex")
     self.syringe_bg = self.panel:AddChild(Image(syringe_atlas, syringe_tex))
-    self.syringe_bg:SetPosition(0, 40)
+    self.syringe_bg:SetPosition(self.syringe_pos.x, self.syringe_pos.y)
     self.syringe_bg:SetSize(66, 360)
     self.syringe_bg:Hide()
 
@@ -351,24 +354,25 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
     elseif self.item_type == "antidote" then
         self.injection_active = true
         self.wrapping_limb = limb_name
-        self.inject_start_y = nil
+        self.syringe_pos = { x = 0, y = 160 }
+        self.syringe_grabbed = false
+        self.inject_progress = 0
+        self.touch_time = 0
 
+        -- Keep body silhouette visible so player can drag the syringe onto it
         for _, img in pairs(self.limb_images) do
-            img:Hide()
+            img:Show()
         end
 
+        self.syringe_bg:SetPosition(self.syringe_pos.x, self.syringe_pos.y)
         self.syringe_bg:Show()
-        self.syringe_liquid:Show()
+        
         self.syringe_liquid:SetSize(38, 180)
-        self.syringe_liquid:SetPosition(0, 20)
+        self.syringe_liquid:SetPosition(self.syringe_pos.x, self.syringe_pos.y + 20)
+        self.syringe_liquid:Show()
 
-        if is_poisoned then
-            self.instructions:SetString("Зажмите ЛКМ и тяните мышь ВНИЗ для укола!")
-            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
-        else
-            self.instructions:SetString("Вы не отравлены, но вводим противоядие для теста!")
-            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
-        end
+        self.instructions:SetString("Зажмите шприц и перетяните его на тело персонажа!")
+        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
 
         if TheInputProxy then
             TheInputProxy:SetCursorVisible(false)
@@ -456,46 +460,90 @@ function ScavMedicalScreen:OnUpdate(dt)
         
         elseif self.injection_active then
             if TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
-                if not self.inject_start_y then
-                    self.inject_start_y = mouse_y
+                -- Grab syringe if mouse is close enough
+                if not self.syringe_grabbed then
+                    local dx = local_x - self.syringe_pos.x
+                    local dy = local_y - self.syringe_pos.y
+                    -- Hitbox check to grab the syringe (tall vertical bounds)
+                    if math.abs(dx) < 50 and math.abs(dy) < 180 then
+                        self.syringe_grabbed = true
+                    end
                 end
 
-                -- Dragging downwards increases progress
-                local dy = self.inject_start_y - mouse_y
-                local progress_ratio = math.max(0, math.min(1.0, dy / 200)) -- Drag 200 pixels down
-                
-                local progress = math.min(100, math.floor(progress_ratio * 100))
-                self.instructions:SetString(string.format("Введение препарата: %d%%", progress))
+                if self.syringe_grabbed then
+                    -- Follow hand cursor, keeping the syringe body above the hand
+                    self.syringe_pos.x = local_x
+                    self.syringe_pos.y = local_y + 100 -- Syringe is attached above the hand cursor
 
-                -- Liquid is emptied as progress increases
-                local liquid_ratio = 1.0 - progress_ratio
-                local fill_max_h = 180
-                local fill_min_y = -70
-                local h = fill_max_h * liquid_ratio
-                local y = fill_min_y + h / 2
-                self.syringe_liquid:SetSize(38, h)
-                self.syringe_liquid:SetPosition(0, y)
+                    self.syringe_bg:SetPosition(self.syringe_pos.x, self.syringe_pos.y)
+                end
+            else
+                self.syringe_grabbed = false
+            end
+
+            -- Collision/hitbox touch detection with body area
+            -- Center body bounds: X: [-100, 100], Y: [-120, 180]
+            local touching_body = false
+            if math.abs(self.syringe_pos.x) < 100 and self.syringe_pos.y >= -120 and self.syringe_pos.y <= 180 then
+                touching_body = true
+            end
+
+            if touching_body and self.syringe_grabbed then
+                -- Touch timer accumulates
+                self.touch_time = self.touch_time + dt
+                
+                -- Check for overdose (continuous contact > 1.0 second)
+                if self.touch_time >= 1.0 then
+                    self.touch_time = 0 -- Reset timer to tick again if they don't pull it out
+                    
+                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"))
+                    
+                    self.instructions:SetString("ПЕРЕДОЗИРОВКА! ОТВЕДИТЕ ШПРИЦ!")
+                    self.instructions:SetColour(1, 0.2, 0.2, 1)
+                    self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                else
+                    if self.touch_time >= 0.8 then
+                        -- Warn about imminent overdose
+                        self.instructions:SetString(string.format("Инъекция: %d%% - ПРЕДУПРЕЖДЕНИЕ!", math.floor(self.inject_progress)))
+                        self.instructions:SetColour(1, 0.5, 0, 1)
+                    else
+                        self.instructions:SetString(string.format("Инъекция: %d%%", math.floor(self.inject_progress)))
+                        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+                    end
+                end
+
+                -- White liquid is emptied (progress increases)
+                -- 25% empty per second (empties in 4 seconds of cumulative contact)
+                self.inject_progress = math.min(100, self.inject_progress + dt * 25)
 
                 -- 100% completed
-                if progress_ratio >= 1.0 then
+                if self.inject_progress >= 100 then
                     self.injection_active = false
                     self.syringe_bg:Hide()
                     self.syringe_liquid:Hide()
-                    self.instructions:SetString("Инъекция завершена!")
+                    self.instructions:SetString("Введение завершено!")
                     self.owner.SoundEmitter:PlaySound("dontstarve/common/teleportato/tubedone")
 
                     SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.wrapping_limb)
                     self:Close()
                 end
             else
-                self.inject_start_y = nil
-                self.instructions:SetString("Зажмите ЛКМ и тяните мышь ВНИЗ для укола!")
-                self.instructions:SetColour(1, 0.5, 0.5, 1)
-                
-                -- Reset liquid back to full
-                self.syringe_liquid:SetSize(38, 180)
-                self.syringe_liquid:SetPosition(0, 20)
+                -- Pulling it away resets the touch timer (avoiding overdose)
+                self.touch_time = 0
+                self.instructions:SetString(self.syringe_grabbed and "Перетяните шприц на тело персонажа!" or "Зажмите и тащите шприц на тело!")
+                self.instructions:SetColour(0.8, 0.8, 0.8, 1)
             end
+
+            -- Update white liquid level and position (trimmed from top relative to syringe position)
+            local progress_ratio = self.inject_progress / 100
+            local liquid_ratio = 1.0 - progress_ratio
+            local fill_max_h = 180
+            local fill_min_y = -70
+            local h = fill_max_h * liquid_ratio
+            local y = fill_min_y + h / 2
+            
+            self.syringe_liquid:SetSize(38, h)
+            self.syringe_liquid:SetPosition(self.syringe_pos.x, self.syringe_pos.y - 40 + y)
         end
     end
 end

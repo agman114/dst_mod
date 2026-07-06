@@ -123,11 +123,20 @@ AddModRPCHandler("MEGACALLLMOD", "ApplyTreatment", function(player, item, limb_n
                 elseif item.prefab == "scav_antidote" then
                     heal_amt = 10
                     cure_poison = true
+                    if player.components.sanity then
+                        player.components.sanity:SetPercent(1.0)
+                    end
                 end
                 
                 player.components.scav_health:HealLimb(limb_name, heal_amt, cure_bleed, cure_fracture, cure_poison)
             end
         end
+    end
+end)
+
+AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player)
+    if player and player:IsValid() and player.components.health and not player.components.health:IsDead() then
+        player.components.health:DoDelta(-15, false, "overdose")
     end
 end)
 
