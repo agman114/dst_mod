@@ -8,12 +8,46 @@ local function GetUIAsset(name, fallback_atlas, fallback_tex)
     return "images/"..name..".xml", name..".tex", true
 end
 
+-- Helper to find a medical item in player inventory, active cursor, or open containers (backpacks)
+local function FindMedicalItem(owner, type)
+    if not owner or not owner.components.inventory then return nil end
+    local prefab = "scav_" .. type
+    
+    -- 1. Check hand cursor active item
+    local active = owner.components.inventory:GetActiveItem()
+    if active and active.prefab == prefab then
+        return active
+    end
+    
+    -- 2. Check main inventory slots
+    local items = owner.components.inventory:GetItems()
+    for _, item in pairs(items) do
+        if item and item.prefab == prefab then
+            return item
+        end
+    end
+    
+    -- 3. Check container items (like backpacks)
+    for _, container in pairs(owner.components.inventory.opencontainers or {}) do
+        if container and container.components.container then
+            local c_items = container.components.container:GetItems()
+            for _, item in pairs(c_items) do
+                if item and item.prefab == prefab then
+                    return item
+                end
+            end
+        end
+    end
+    
+    return nil
+end
+
 local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     Screen._ctor(self, "ScavMedicalScreen")
     
     self.owner = owner
     self.item = item -- The item inst (bandage, splint, antidote)
-    self.item_type = item.scav_medical_type or "bandage"
+    self.item_type = item and item.scav_medical_type or nil
 
     -- Set up root widget
     self.root = self:AddChild(Widget("root"))
@@ -182,32 +216,84 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
     if self.wrapping_active then return end
 
     local inst = self.owner
+    self.item = nil
+    self.item_type = nil
 
-    if self.item_type == "bandage" then
-        local is_bleeding = false
-        if limb_name == "torso" and inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() then is_bleeding = true
-        elseif limb_name == "left_arm" and inst.scav_bleeding_left_arm and inst.scav_bleeding_left_arm:value() then is_bleeding = true
-        elseif limb_name == "right_arm" and inst.scav_bleeding_right_arm and inst.scav_bleeding_right_arm:value() then is_bleeding = true
-        elseif limb_name == "left_leg" and inst.scav_bleeding_left_leg and inst.scav_bleeding_left_leg:value() then is_bleeding = true
-        elseif limb_name == "right_leg" and inst.scav_bleeding_right_leg and inst.scav_bleeding_right_leg:value() then is_bleeding = true
+    -- 1. Determine the appropriate item type based on limb condition
+    local is_bleeding = false
+    if limb_name == "torso" and inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() then is_bleeding = true
+    elseif limb_name == "left_arm" and inst.scav_bleeding_left_arm and inst.scav_bleeding_left_arm:value() then is_bleeding = true
+    elseif limb_name == "right_arm" and inst.scav_bleeding_right_arm and inst.scav_bleeding_right_arm:value() then is_bleeding = true
+    elseif limb_name == "left_leg" and inst.scav_bleeding_left_leg and inst.scav_bleeding_left_leg:value() then is_bleeding = true
+    elseif limb_name == "right_leg" and inst.scav_bleeding_right_leg and inst.scav_bleeding_right_leg:value() then is_bleeding = true
+    end
+
+    local is_broken = false
+    if limb_name == "left_arm" and inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() then is_broken = true
+    elseif limb_name == "right_arm" and inst.scav_broken_right_arm and inst.scav_broken_right_arm:value() then is_broken = true
+    elseif limb_name == "left_leg" and inst.scav_broken_left_leg and inst.scav_broken_left_leg:value() then is_broken = true
+    elseif limb_name == "right_leg" and inst.scav_broken_right_leg and inst.scav_broken_right_leg:value() then is_broken = true
+    end
+
+    local is_poisoned = inst.scav_poisoned and inst.scav_poisoned:value()
+
+    local target_type = nil
+    if is_bleeding then
+        target_type = "bandage"
+    elseif is_broken then
+        target_type = "splint"
+    elseif is_poisoned then
+        target_type = "antidote"
+    else
+        -- Default to first available item for testing/training on healthy limbs
+        local bandage = FindMedicalItem(inst, "bandage")
+        local splint = FindMedicalItem(inst, "splint")
+        local antidote = FindMedicalItem(inst, "antidote")
+        
+        if bandage then target_type = "bandage"
+        elseif splint then target_type = "splint"
+        elseif antidote then target_type = "antidote"
         end
+    end
 
-        -- Start wrapping minigame
+    if not target_type then
+        self.instructions:SetString("У вас нет медицинских предметов для лечения!")
+        self.instructions:SetColour(1, 0.3, 0.3, 1)
+        return
+    end
+
+    -- Find the item in inventory
+    local item = FindMedicalItem(inst, target_type)
+    if not item then
+        if target_type == "bandage" then
+            self.instructions:SetString("У вас нет бинта для остановки кровотечения!")
+        elseif target_type == "splint" then
+            self.instructions:SetString("У вас нет шины для фиксации перелома!")
+        elseif target_type == "antidote" then
+            self.instructions:SetString("У вас нет противоядия для инъекции!")
+        end
+        self.instructions:SetColour(1, 0.3, 0.3, 1)
+        return
+    end
+
+    self.item = item
+    self.item_type = target_type
+
+    -- 2. Execute treatment
+    if self.item_type == "bandage" then
         self.wrapping_active = true
         self.wrapping_limb = limb_name
         self.wrap_accumulated_angle = 0
         self.wrap_angle_prev = nil
         
-        -- Temporarily hide limbs to focus visual on the wrapping game
         for _, img in pairs(self.limb_images) do
             img:Hide()
         end
 
         self.wrap_circle:Show()
         self.wrap_bandage:Show()
-        self.wrap_bandage:SetSize(65, 65) -- Reset to full size when starting
+        self.wrap_bandage:SetSize(65, 65)
         
-        -- Get screen space center of the wrapping circle (centered at torso center 0, 40)
         local panel_pos = self.panel:GetWorldPosition()
         local scale = self.root:GetScale()
         self.wrap_center_screen = { x = panel_pos.x, y = panel_pos.y + 40 * scale.y }
@@ -220,7 +306,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
             self.instructions:SetColour(0.3, 0.9, 0.3, 1)
         end
 
-        -- Hide hardware cursor and show custom hand cursor for the minigame
         if TheInputProxy then
             TheInputProxy:SetCursorVisible(false)
         end
@@ -228,13 +313,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         self.was_clicked = nil
     
     elseif self.item_type == "splint" then
-        local is_broken = false
-        if limb_name == "left_arm" and inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() then is_broken = true
-        elseif limb_name == "right_arm" and inst.scav_broken_right_arm and inst.scav_broken_right_arm:value() then is_broken = true
-        elseif limb_name == "left_leg" and inst.scav_broken_left_leg and inst.scav_broken_left_leg:value() then is_broken = true
-        elseif limb_name == "right_leg" and inst.scav_broken_right_leg and inst.scav_broken_right_leg:value() then is_broken = true
-        end
-
         if not is_broken then
             self.instructions:SetString("Конечность цела, но накладываем шину для теста...")
             self.instructions:SetColour(0.8, 0.8, 0.8, 1)
@@ -249,8 +327,6 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         end)
     
     elseif self.item_type == "antidote" then
-        local is_poisoned = inst.scav_poisoned and inst.scav_poisoned:value()
-        
         if not is_poisoned then
             self.instructions:SetString("Вы не отравлены, но вкалываем противоядие для теста...")
             self.instructions:SetColour(0.8, 0.8, 0.8, 1)

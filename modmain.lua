@@ -149,26 +149,28 @@ AddModRPCHandler("MEGACALLLMOD", "LockpickFail", function(player, chest)
 end)
 
 --------------------------------------------------------------------------------
--- HOOK CLIENT-SIDE INVENTORY (Intercept medical item double-clicks/right-clicks)
+-- REGISTER KEYBOARD LISTENER (Open/Close Medical screen on KEY_V)
 --------------------------------------------------------------------------------
 if not TheNet:IsDedicated() then
-    local function HookInventoryBar()
-        -- Use task delay to ensure the inventory scripts are loaded
-        local Inventory = require("components/inventory")
-        if Inventory then
-            local old_UseItemFromInvTile = Inventory.UseItemFromInvTile
-            Inventory.UseItemFromInvTile = function(self, item, ...)
-                if item and item:HasTag("scav_medical") then
-                    local TheFrontEnd = GLOBAL.TheFrontEnd
-                    local ScavMedicalScreen = require("screens/scav_medical_screen")
-                    TheFrontEnd:PushScreen(ScavMedicalScreen(self.inst, item))
-                    return true
-                end
-                return old_UseItemFromInvTile(self, item, ...)
+    GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_V, function()
+        local player = GLOBAL.ThePlayer
+        if player and player:IsValid() and player.prefab == "mycharacter" then
+            local TheFrontEnd = GLOBAL.TheFrontEnd
+            local active_screen = TheFrontEnd:GetActiveScreen()
+            
+            -- Prevent opening if chat is active, or if another UI screen is open
+            if TheFrontEnd:IsChatSystemActive() then
+                return
+            end
+            
+            if active_screen and active_screen.name == "ScavMedicalScreen" then
+                active_screen:Close()
+            elseif not active_screen then
+                local ScavMedicalScreen = require("screens/scav_medical_screen")
+                TheFrontEnd:PushScreen(ScavMedicalScreen(player))
             end
         end
-    end
-    HookInventoryBar()
+    end)
 end
 
 --------------------------------------------------------------------------------
