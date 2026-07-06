@@ -162,7 +162,7 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
 
     -- Liquid rectangle (drawn BEHIND the syringe outline)
     self.syringe_liquid = self.panel:AddChild(Image("images/global.xml", "square.tex"))
-    self.syringe_liquid:SetColour(0.2, 0.9, 0.4, 0.6) -- Semi-transparent green
+    self.syringe_liquid:SetTint(0.2, 0.9, 0.4, 0.6) -- Semi-transparent green
     self.syringe_liquid:SetSize(38, 180)
     self.syringe_liquid:SetPosition(0, 20)
     self.syringe_liquid:Hide()
