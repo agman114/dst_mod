@@ -136,9 +136,10 @@ AddModRPCHandler("MEGACALLLMOD", "ApplyTreatment", function(player, item, limb_n
     end
 end)
 
-AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player)
+AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player, amount)
+    local dmg = amount or 15
     if player and player:IsValid() and player.components.health and not player.components.health:IsDead() then
-        player.components.health:DoDelta(-15, false, "overdose")
+        player.components.health:DoDelta(-dmg, false, "overdose")
     end
 end)
 

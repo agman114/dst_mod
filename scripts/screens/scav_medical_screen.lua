@@ -180,7 +180,7 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     -- Syringe target body part image (dark black rectangle from the chat)
     local target_atlas, target_tex = GetUIAsset("scav_body_target", "images/global_redux.xml", "button_square.tex")
     self.body_target = self.panel:AddChild(Image(target_atlas, target_tex))
-    self.body_target:SetPosition(0, -130)
+    self.body_target:SetPosition(0, -220)
     self.body_target:SetSize(450, 180)
     self.body_target:Hide()
 
@@ -513,11 +513,11 @@ function ScavMedicalScreen:OnUpdate(dt)
             end
 
             -- Collision/hitbox touch detection using the needle tip (bottom of the syringe)
-            -- Bounding box matches scav_body_target size: X: [-225, 225], Y: [-220, -40] (center: 0, -130)
+            -- Bounding box matches scav_body_target size at Y: -220: X: [-225, 225], Y: [-350, -130] (partially offscreen)
             local needle_x = self.syringe_pos.x
             local needle_y = self.syringe_pos.y - 180 -- Needle tip is 180px below center of syringe
             local touching_body = false
-            if math.abs(needle_x) < 225 and needle_y >= -220 and needle_y <= -40 then
+            if math.abs(needle_x) < 225 and needle_y >= -350 and needle_y <= -130 then
                 touching_body = true
             end
 
@@ -525,25 +525,29 @@ function ScavMedicalScreen:OnUpdate(dt)
                 -- Touch timer accumulates
                 self.touch_time = self.touch_time + dt
                 
-                -- Check for overdose (continuous contact > 1.0 second)
-                if self.touch_time >= 1.0 then
-                    self.touch_time = 0 -- Reset timer to tick again if they don't pull it out
-                    
-                    -- Save progress made up to overdose before applying damage
-                    if self.injected_this_session > 0.1 then
-                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
-                        self.injected_this_session = 0
-                    end
+                -- Check for soft/gradual overdose starting from 5.0 seconds
+                if self.touch_time >= 5.0 then
+                    self.overdose_damage_timer = (self.overdose_damage_timer or 0) + dt
+                    if self.overdose_damage_timer >= 1.0 then
+                        self.overdose_damage_timer = 0
+                        
+                        -- Save progress made up to this tick
+                        if self.injected_this_session > 0.1 then
+                            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
+                            self.injected_this_session = 0
+                        end
 
-                    SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"))
+                        -- Deal 5 gradual overdose damage
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 5)
+                        self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+                    end
                     
                     self.instructions:SetString("ПЕРЕДОЗИРОВКА! ОТВЕДИТЕ ШПРИЦ!")
                     self.instructions:SetColour(1, 0.2, 0.2, 1)
-                    self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
                 else
-                    if self.touch_time >= 0.8 then
-                        -- Warn about imminent overdose
-                        self.instructions:SetString(string.format("Инъекция: %d%% - ПРЕДУПРЕЖДЕНИЕ!", math.floor(self.inject_progress)))
+                    if self.touch_time >= 4.0 then
+                        -- Warn about imminent overdose starting from 4 seconds
+                        self.instructions:SetString(string.format("Инъекция: %d%% - ОПАСНОСТЬ ПЕРЕДОЗИРОВКИ!", math.floor(self.inject_progress)))
                         self.instructions:SetColour(1, 0.5, 0, 1)
                     else
                         self.instructions:SetString(string.format("Инъекция: %d%%", math.floor(self.inject_progress)))
@@ -552,9 +556,9 @@ function ScavMedicalScreen:OnUpdate(dt)
                 end
 
                 -- White liquid is emptied (progress increases)
-                -- 10% empty per second (empties in 10 seconds of cumulative contact)
+                -- 6.25% empty per second (empties in 16 seconds of cumulative contact)
                 local old_progress = self.inject_progress
-                self.inject_progress = math.min(100, self.inject_progress + dt * 10)
+                self.inject_progress = math.min(100, self.inject_progress + dt * 6.25)
                 local delta = self.inject_progress - old_progress
                 if delta > 0 then
                     self.injected_this_session = self.injected_this_session + delta
