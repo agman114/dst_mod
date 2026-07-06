@@ -19,6 +19,22 @@ local ScavHealth = Class(function(self, inst)
         end
     end)
 
+    -- Venomous creatures can poison the player during combat
+    self.inst:ListenForEvent("attacked", function(inst, data)
+        if data and data.attacker then
+            local attacker_prefab = data.attacker.prefab
+            if attacker_prefab == "spider_warrior" or attacker_prefab == "bee" or attacker_prefab == "killerbee" then
+                if not self.poisoned and math.random() < 0.25 then
+                    self.poisoned = true
+                    self:SyncToNetVars()
+                    if inst.components.talker then
+                        inst.components.talker:Say("О нет! Меня отравили!")
+                    end
+                end
+            end
+        end
+    end)
+
     self.inst:StartUpdatingComponent(self)
 end)
 
