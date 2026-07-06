@@ -36,6 +36,16 @@ local ScavHealth = Class(function(self, inst)
         end
     end)
 
+    self.inst:ListenForEvent("death", function(inst)
+        self.overdose_cooldown = 0
+        self:SyncToNetVars()
+    end)
+
+    self.inst:ListenForEvent("respawnfromghost", function(inst)
+        self.overdose_cooldown = 0
+        self:SyncToNetVars()
+    end)
+
     self.inst:StartUpdatingComponent(self)
 end)
 
