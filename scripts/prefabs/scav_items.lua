@@ -56,8 +56,8 @@ end
 
 local function antidote_custom(inst)
     inst.scav_medical_type = "antidote"
-    inst.scav_charge = GLOBAL.net_float(inst.GUID, "scav_charge", "scav_chargedirty")
-    if GLOBAL.TheWorld.ismastersim then
+    inst.scav_charge = net_float(inst.GUID, "scav_charge", "scav_chargedirty")
+    if TheWorld.ismastersim then
         inst.scav_charge:set(100.0)
     end
 end
