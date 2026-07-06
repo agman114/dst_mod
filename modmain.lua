@@ -158,14 +158,11 @@ if not TheNet:IsDedicated() then
             local TheFrontEnd = GLOBAL.TheFrontEnd
             local active_screen = TheFrontEnd:GetActiveScreen()
             
-            if active_screen then
-                if active_screen.name == "ScavMedicalScreen" then
-                    active_screen:Close()
-                end
-                return
-            else
+            if active_screen == player.HUD then
                 local ScavMedicalScreen = require("screens/scav_medical_screen")
                 TheFrontEnd:PushScreen(ScavMedicalScreen(player))
+            elseif active_screen and active_screen.name == "ScavMedicalScreen" then
+                active_screen:Close()
             end
         end
     end)
