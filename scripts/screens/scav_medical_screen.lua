@@ -550,7 +550,7 @@ function ScavMedicalScreen:OnUpdate(dt)
                     -- Check for gradual overdose starting from 5.0 seconds
                     if self.touch_time >= 5.0 then
                         self.overdose_damage_timer = (self.overdose_damage_timer or 0) + dt
-                        if self.overdose_damage_timer >= 1.0 then
+                        if self.overdose_damage_timer >= 5.0 then
                             self.overdose_damage_timer = 0
                             
                             -- Save progress made up to this tick
