@@ -88,8 +88,12 @@ STRINGS.CHARACTER_QUOTES.mycharacter = "\"Я должен выжить любо�
 
 STRINGS.NAMES.MYCHARACTER = "Выживший"
 
--- Register custom character
 AddModCharacter("mycharacter", "MALE")
+
+-- Register custom inventory item atlas mapping (so both client and server resolve it correctly)
+if GLOBAL.rawget(GLOBAL, "RegisterInventoryItemAtlas") then
+    GLOBAL.RegisterInventoryItemAtlas("images/scav_bandage.xml", "scav_bandage.tex")
+end
 
 --------------------------------------------------------------------------------
 -- REGISTER MOD RPCs (Network Sync Client -> Server)
