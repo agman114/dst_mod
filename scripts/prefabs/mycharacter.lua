@@ -161,14 +161,17 @@ local function master_postinit(inst)
     inst:ListenForEvent("actioncomplete", RemoveTempFist)
     inst:ListenForEvent("actionfailed", RemoveTempFist)
 
-    -- Spawn start chest once
+    -- Spawn start chests (both types)
     inst:DoTaskInTime(3, function(inst)
         if not inst.scav_spawned_start_chest then
             inst.scav_spawned_start_chest = true
             local spawner = require("scav_chest_spawner")
             if spawner and spawner.SpawnChestNearPlayer then
-                spawner.SpawnChestNearPlayer(inst)
-                print("[SCAV Spawner] Spawned start chest near player!")
+                spawner.SpawnChestNearPlayer(inst, "scav_chest")
+                inst:DoTaskInTime(0.5, function(inst)
+                    spawner.SpawnChestNearPlayer(inst, "scav_keypad_chest")
+                    print("[SCAV Spawner] Spawned start chests (both lockpick and keypad) near player!")
+                end)
             end
         end
     end)

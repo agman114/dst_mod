@@ -1,4 +1,4 @@
-local function SpawnChestNearPlayer(player)
+local function SpawnChestNearPlayer(player, prefab)
     local x, y, z = player.Transform:GetWorldPosition()
     
     -- Try to find a valid walkable spot around the player
@@ -17,11 +17,11 @@ local function SpawnChestNearPlayer(player)
             -- Check for nearby structures/chests to prevent overlap
             local ents = TheSim:FindEntities(tx, 0, tz, 5, { "structure", "scav_chest", "chest" })
             if #ents == 0 then
-                local prefab = math.random() < 0.5 and "scav_chest" or "scav_keypad_chest"
-                local chest = SpawnPrefab(prefab)
+                local chest_prefab = prefab or (math.random() < 0.5 and "scav_chest" or "scav_keypad_chest")
+                local chest = SpawnPrefab(chest_prefab)
                 if chest then
                     chest.Transform:SetPosition(tx, 0, tz)
-                    print("[SCAV Spawner] Spawned chest ("..prefab..") at: ", tx, tz)
+                    print("[SCAV Spawner] Spawned chest ("..chest_prefab..") at: ", tx, tz)
                     return true
                 end
             end

@@ -2,6 +2,6 @@
 <Atlas>
 	<Texture filename="Arm-removebg-preview.tex" />
 	<Elements>
-		<Element name="Arm-removebg-preview.tex" u1="0.00390625" u2="0.949219" v1="0.338867" v2="0.999023" />
+		<Element name="Arm-removebg-preview.tex" u1="0.00195313" u2="0.841797" v1="0.338867" v2="0.999023" />
 	</Elements>
 </Atlas>
