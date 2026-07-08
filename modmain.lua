@@ -269,23 +269,6 @@ AddComponentPostInit("playeractionpicker", function(self)
         local ThePlayer = GLOBAL.ThePlayer
         local TheFrontEnd = GLOBAL.TheFrontEnd
         
-        -- 1. Intercept locked chests to trigger lockpicking UI
-        if target and target:HasTag("scav_chest") and target.scav_locked and target.scav_locked:value() then
-            if inst == ThePlayer then
-                if inst:HasTag("scav_unarmed_worker") then
-                    local ScavLockpickScreen = require("screens/scav_lockpick_screen")
-                    if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavLockpickScreen" then
-                        TheFrontEnd:PushScreen(ScavLockpickScreen(inst, target))
-                    end
-                else
-                    if inst.components.talker then
-                        inst.components.talker:Say("Этот замок слишком сложный для меня...")
-                    end
-                end
-                return {} -- Stop action, do not run standard open container
-            end
-        end
-
         -- Call original logic
         local actions = old_GetLeftClickActions(self, position, target, ...)
 
@@ -375,4 +358,27 @@ if not TheNet:IsDedicated() then
             end
         end
     end)
+end
+
+-- Hook OPEN_CONTAINER action to trigger lockpicking minigame on server
+local old_OPEN_CONTAINER_fn = GLOBAL.ACTIONS.OPEN_CONTAINER.fn
+GLOBAL.ACTIONS.OPEN_CONTAINER.fn = function(act, ...)
+    local target = act.target
+    local doer = act.doer
+    if target and target:HasTag("scav_chest") and target.scav_locked and target.scav_locked:value() then
+        if doer and doer:IsValid() then
+            if doer:HasTag("scav_unarmed_worker") then
+                -- Push net event to trigger client minigame UI on the doer player
+                if doer.scav_trigger_lockpick then
+                    doer.scav_trigger_lockpick:push()
+                end
+            else
+                if doer.components.talker then
+                    doer.components.talker:Say("Этот замок слишком сложный для меня...")
+                end
+            end
+        end
+        return true -- Handled/blocked standard container open slots
+    end
+    return old_OPEN_CONTAINER_fn(act, ...)
 end

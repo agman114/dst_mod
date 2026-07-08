@@ -88,7 +88,7 @@ local ScavLockpickScreen = Class(Screen, function(self, owner, chest)
         
         local btn = self.panel:AddChild(ImageButton("images/global.xml", "square.tex"))
         btn:SetPosition(x, y)
-        btn:SetSize(32, 32)
+        btn:ForceImageSize(32, 32)
         btn.image:SetTint(0, 0, 0, 0) -- Invisible
         
         btn:SetOnClick(function()

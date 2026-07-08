@@ -50,6 +50,23 @@ local function common_postinit(inst)
 
     inst.scav_poisoned = net_bool(inst.GUID, "scav_poisoned")
     inst.scav_overdose_cooldown = net_float(inst.GUID, "scav_overdose_cooldown")
+
+    inst.scav_trigger_lockpick = net_event(inst.GUID, "scav_trigger_lockpick")
+
+    inst:ListenForEvent("scav_trigger_lockpick", function(inst)
+        if inst == _G.ThePlayer then
+            local chest = _G.FindEntity(inst, 4, function(ent)
+                return ent:HasTag("scav_chest") and ent.scav_locked and ent.scav_locked:value()
+            end)
+            if chest then
+                local ScavLockpickScreen = require("screens/scav_lockpick_screen")
+                local TheFrontEnd = _G.TheFrontEnd
+                if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavLockpickScreen" then
+                    TheFrontEnd:PushScreen(ScavLockpickScreen(inst, chest))
+                end
+            end
+        end
+    end)
 end
 
 -- This is called only on the server
