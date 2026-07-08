@@ -117,7 +117,7 @@ function ScavLockpickScreen:OnHitboxClicked(index)
         
         SendModRPCToServer(GetModRPC("MEGACALLLMOD", "LockpickSuccess"), self.chest)
         
-        self.panel:DoTaskInTime(0.5, function()
+        self.inst:DoTaskInTime(0.5, function()
             self:Close()
         end)
     else
@@ -139,9 +139,12 @@ function ScavLockpickScreen:OnUpdate(dt)
     TheInputProxy:SetCursorVisible(false)
     
     -- Position custom cursor
+    local w, h = TheSim:GetScreenSize()
     local mouse_pos = TheInput:GetScreenPosition()
-    local local_pos = self.root:GetLocalPosition(mouse_pos)
-    self.hand_cursor:SetPosition(local_pos.x, local_pos.y)
+    local scale = self.root:GetScale()
+    local local_x = (mouse_pos.x - w / 2) / scale.x
+    local local_y = (mouse_pos.y - h / 2) / scale.y
+    self.hand_cursor:SetPosition(local_x, local_y)
     
     -- Swap hand texture based on click state
     local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
