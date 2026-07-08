@@ -44,3 +44,7 @@ end
 if TheWorld and TheWorld.ismastersim then
     StartSpawner(TheWorld)
 end
+
+return {
+    SpawnChestNearPlayer = SpawnChestNearPlayer
+}

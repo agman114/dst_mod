@@ -135,6 +135,37 @@ local function master_postinit(inst)
 
     inst:ListenForEvent("actioncomplete", RemoveTempFist)
     inst:ListenForEvent("actionfailed", RemoveTempFist)
+
+    -- Spawn start chest once
+    inst:DoTaskInTime(3, function(inst)
+        if not inst.scav_spawned_start_chest then
+            inst.scav_spawned_start_chest = true
+            local spawner = require("scav_chest_spawner")
+            if spawner and spawner.SpawnChestNearPlayer then
+                spawner.SpawnChestNearPlayer(inst)
+                print("[SCAV Spawner] Spawned start chest near player!")
+            end
+        end
+    end)
+
+    -- Save/Load start chest spawn flag
+    local old_OnSave = inst.OnSave
+    inst.OnSave = function(inst, data)
+        data.scav_spawned_start_chest = inst.scav_spawned_start_chest
+        if old_OnSave then
+            return old_OnSave(inst, data)
+        end
+    end
+
+    local old_OnLoad = inst.OnLoad
+    inst.OnLoad = function(inst, data)
+        if data then
+            inst.scav_spawned_start_chest = data.scav_spawned_start_chest
+        end
+        if old_OnLoad then
+            old_OnLoad(inst, data)
+        end
+    end
 end
 
 -- Hidden fist helper prefab
