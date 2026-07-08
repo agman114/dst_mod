@@ -136,7 +136,7 @@ function ScavLockpickScreen:OnUpdate(dt)
     local arm_angle_deg = arm_angle_rad * 180 / math.pi
     
     self.hand_cursor:SetPosition(shoulder_x, shoulder_y)
-    self.hand_cursor:SetRotation(arm_angle_deg - 90)
+    self.hand_cursor:SetRotation(90 - arm_angle_deg)
     
     local base_height = is_clicked and 341 or 339
     local target_scale_y = arm_dist / base_height
