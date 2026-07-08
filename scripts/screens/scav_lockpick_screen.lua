@@ -98,16 +98,12 @@ function ScavLockpickScreen:OnUpdate(dt)
     local mx = (mouse_pos.x - w / 2) / scale.x
     local my = (mouse_pos.y - h / 2) / scale.y
     
-    -- Calculate angle and distance relative to keyhole center (0, -20)
-    local dx = mx
-    local dy = my - (-20)
-    
-    -- When NOT holding LMB, claw follows mouse angle along the arch
+    -- When NOT holding LMB, claw follows mouse X position along the arch
     if not self.unlocked then
         if not TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
-            local angle_rad = math.atan2(dy, dx)
-            local angle_deg = angle_rad * 180 / math.pi
-            local T_mouse = (180 - angle_deg) / 180
+            local min_x = -155
+            local max_x = 155
+            local T_mouse = (mx - min_x) / (max_x - min_x)
             self.T_claw = math.max(0.0, math.min(1.0, T_mouse))
         end
     end
