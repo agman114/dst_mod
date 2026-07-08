@@ -71,6 +71,10 @@ Assets = {
     Asset("IMAGE", "images/scav_syringe.tex"),
     Asset("ATLAS", "images/scav_body_target.xml"),
     Asset("IMAGE", "images/scav_body_target.tex"),
+    Asset("ATLAS", "images/scav_lock_keyhole.xml"),
+    Asset("IMAGE", "images/scav_lock_keyhole.tex"),
+    Asset("ATLAS", "images/scav_lock_scale.xml"),
+    Asset("IMAGE", "images/scav_lock_scale.tex"),
 }
 
 -- Prefab files to load
@@ -268,9 +272,15 @@ AddComponentPostInit("playeractionpicker", function(self)
         -- 1. Intercept locked chests to trigger lockpicking UI
         if target and target:HasTag("scav_chest") and target.scav_locked and target.scav_locked:value() then
             if inst == ThePlayer then
-                local ScavLockpickScreen = require("screens/scav_lockpick_screen")
-                if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavLockpickScreen" then
-                    TheFrontEnd:PushScreen(ScavLockpickScreen(inst, target))
+                if inst:HasTag("scav_unarmed_worker") then
+                    local ScavLockpickScreen = require("screens/scav_lockpick_screen")
+                    if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavLockpickScreen" then
+                        TheFrontEnd:PushScreen(ScavLockpickScreen(inst, target))
+                    end
+                else
+                    if inst.components.talker then
+                        inst.components.talker:Say("Этот замок слишком сложный для меня...")
+                    end
                 end
                 return {} -- Stop action, do not run standard open container
             end

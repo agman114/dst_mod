@@ -30,8 +30,8 @@ local function SpawnChestNearPlayer(player)
 end
 
 local function StartSpawner(world)
-    -- Spawn a chest every 1.5 days (1 day = 480 seconds, so 720 seconds)
-    world:DoPeriodicTask(720, function()
+    -- Spawn a chest every 20 minutes (1200 seconds)
+    world:DoPeriodicTask(1200, function()
         -- Only spawn if players are online
         if #AllPlayers > 0 then
             local target_player = AllPlayers[math.random(#AllPlayers)]

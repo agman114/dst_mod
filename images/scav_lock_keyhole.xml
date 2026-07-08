@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_lock_keyhole.tex" />
+	<Elements>
+		<Element name="scav_lock_keyhole.tex" u1="0.00195313" u2="0.998047" v1="0.00195313" v2="0.998047" />
+	</Elements>
+</Atlas>

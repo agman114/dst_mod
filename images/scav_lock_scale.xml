@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_lock_scale.tex" />
+	<Elements>
+		<Element name="scav_lock_scale.tex" u1="0.00390625" u2="0.722656" v1="0.445313" v2="0.992188" />
+	</Elements>
+</Atlas>

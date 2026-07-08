@@ -49,6 +49,7 @@ local function common_postinit(inst)
     inst.scav_bleeding_right_leg = net_bool(inst.GUID, "scav_bleeding_right_leg")
 
     inst.scav_poisoned = net_bool(inst.GUID, "scav_poisoned")
+    inst.scav_overdose_cooldown = net_float(inst.GUID, "scav_overdose_cooldown")
 end
 
 -- This is called only on the server
