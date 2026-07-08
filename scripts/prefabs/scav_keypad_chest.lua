@@ -53,8 +53,8 @@ local function fn()
     inst:AddTag("scav_chest")
     inst:AddTag("chest")
 
-    inst.AnimState:SetBank("chest")
-    inst.AnimState:SetBuild("treasure_chest")
+    inst.AnimState:SetBank("sacred_chest")
+    inst.AnimState:SetBuild("sacred_chest")
     inst.AnimState:PlayAnimation("closed")
 
     -- Add a net variable to tell clients if the chest is locked
@@ -63,7 +63,8 @@ local function fn()
 
     -- Lock type synced to client: 0 for hotspot (lockpick), 1 for keypad
     inst.scav_lock_type = net_byte(inst.GUID, "scav_lock_type")
-    
+    inst.scav_lock_type:set(1) -- Always keypad type
+
     inst.entity:SetPristine()
 
     if not TheWorld.ismastersim then
@@ -79,9 +80,6 @@ local function fn()
 
     -- Populate loot immediately but keep it locked
     PopulateLoot(inst)
-
-    -- Randomize lock type (0 = hotspot lockpick, 1 = keypad code)
-    inst.scav_lock_type:set(0)
 
     -- Save/Load chest lock state
     inst.OnSave = function(inst, data)
@@ -100,4 +98,4 @@ local function fn()
     return inst
 end
 
-return Prefab("scav_chest", fn, assets)
+return Prefab("scav_keypad_chest", fn, assets)

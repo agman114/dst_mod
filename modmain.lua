@@ -75,6 +75,8 @@ Assets = {
     Asset("IMAGE", "images/scav_lock_keyhole.tex"),
     Asset("ATLAS", "images/scav_lock_scale.xml"),
     Asset("IMAGE", "images/scav_lock_scale.tex"),
+    Asset("ATLAS", "images/scav_pinpad.xml"),
+    Asset("IMAGE", "images/scav_pinpad.tex"),
 }
 
 -- Prefab files to load
@@ -82,6 +84,7 @@ PrefabFiles = {
     "mycharacter",
     "scav_items",
     "scav_chest",
+    "scav_keypad_chest",
 }
 
 -- Load speech strings

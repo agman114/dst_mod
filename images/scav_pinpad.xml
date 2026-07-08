@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_pinpad.tex" />
+	<Elements>
+		<Element name="scav_pinpad_clear.tex" u1="0.000244141" u2="0.0358887" v1="0.417969" v2="0.996094" />
+		<Element name="scav_pinpad_enterpod.tex" u1="0.036377" u2="0.279053" v1="0.191406" v2="0.996094" />
+		<Element name="scav_pinpad_0.tex" u1="0.279541" u2="0.323975" v1="0.285156" v2="0.996094" />
+		<Element name="scav_pinpad_1.tex" u1="0.324463" u2="0.368408" v1="0.277344" v2="0.996094" />
+		<Element name="scav_pinpad_2.tex" u1="0.368896" u2="0.411865" v1="0.277344" v2="0.996094" />
+		<Element name="scav_pinpad_3.tex" u1="0.412354" u2="0.457275" v1="0.285156" v2="0.996094" />
+		<Element name="scav_pinpad_4.tex" u1="0.457764" u2="0.502197" v1="0.292969" v2="0.996094" />
+		<Element name="scav_pinpad_5.tex" u1="0.502686" u2="0.547607" v1="0.277344" v2="0.996094" />
+		<Element name="scav_pinpad_6.tex" u1="0.548096" u2="0.593018" v1="0.285156" v2="0.996094" />
+		<Element name="scav_pinpad_7.tex" u1="0.593506" u2="0.637939" v1="0.300781" v2="0.996094" />
+		<Element name="scav_pinpad_8.tex" u1="0.638428" u2="0.681885" v1="0.300781" v2="0.996094" />
+		<Element name="scav_pinpad_9.tex" u1="0.682373" u2="0.726318" v1="0.308594" v2="0.996094" />
+	</Elements>
+</Atlas>

@@ -17,10 +17,11 @@ local function SpawnChestNearPlayer(player)
             -- Check for nearby structures/chests to prevent overlap
             local ents = TheSim:FindEntities(tx, 0, tz, 5, { "structure", "scav_chest", "chest" })
             if #ents == 0 then
-                local chest = SpawnPrefab("scav_chest")
+                local prefab = math.random() < 0.5 and "scav_chest" or "scav_keypad_chest"
+                local chest = SpawnPrefab(prefab)
                 if chest then
                     chest.Transform:SetPosition(tx, 0, tz)
-                    print("[SCAV Spawner] Spawned chest at: ", tx, tz)
+                    print("[SCAV Spawner] Spawned chest ("..prefab..") at: ", tx, tz)
                     return true
                 end
             end

@@ -60,10 +60,17 @@ local function common_postinit(inst)
                 return ent:HasTag("scav_chest") and ent.scav_locked and ent.scav_locked:value()
             end)
             if chest then
-                local ScavLockpickScreen = require("screens/scav_lockpick_screen")
                 local TheFrontEnd = env.TheFrontEnd
-                if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavLockpickScreen" then
-                    TheFrontEnd:PushScreen(ScavLockpickScreen(inst, chest))
+                if chest.scav_lock_type and chest.scav_lock_type:value() == 1 then
+                    local ScavKeypadScreen = require("screens/scav_keypad_screen")
+                    if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavKeypadScreen" then
+                        TheFrontEnd:PushScreen(ScavKeypadScreen(inst, chest))
+                    end
+                else
+                    local ScavLockpickScreen = require("screens/scav_lockpick_screen")
+                    if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavLockpickScreen" then
+                        TheFrontEnd:PushScreen(ScavLockpickScreen(inst, chest))
+                    end
                 end
             end
         end
