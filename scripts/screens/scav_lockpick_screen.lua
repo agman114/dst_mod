@@ -69,7 +69,7 @@ local ScavLockpickScreen = Class(Screen, function(self, owner, chest)
     self.hand_cursor = self.root:AddChild(Image("images/Arm-removebg-preview.xml", "Arm-removebg-preview.tex"))
     self.hand_cursor:SetVRegPoint(ANCHOR_BOTTOM)
     self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
-    self.hand_cursor.clickable = false
+    self.hand_cursor:SetClickable(false)
     
     -- Hide hardware cursor and show custom cursor
     TheInputProxy:SetCursorVisible(false)
