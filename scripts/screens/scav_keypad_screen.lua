@@ -73,7 +73,7 @@ local ScavKeypadScreen = Class(Screen, function(self, owner, chest)
     -- Clear Button ("C")
     self.clear_btn = self.panel:AddChild(ImageButton("images/scav_pinpad.xml", "scav_pinpad_clear.tex"))
     self.clear_btn:SetPosition(130, 40)
-    self.clear_btn:ForceImageSize(70, 70)
+    self.clear_btn:SetScale(0.95, 0.95)
     self.clear_btn:SetOnClick(function()
         if not self.unlocked and not self.input_blocked then
             self.entered_code = ""
@@ -99,7 +99,7 @@ local ScavKeypadScreen = Class(Screen, function(self, owner, chest)
         local y = -60
         local btn = self.panel:AddChild(ImageButton("images/scav_pinpad.xml", "scav_pinpad_"..num..".tex"))
         btn:SetPosition(x, y)
-        btn:ForceImageSize(80, 80)
+        btn:SetScale(0.87, 0.87)
         btn:SetOnClick(function()
             self:PressNum(num)
         end)
@@ -112,7 +112,7 @@ local ScavKeypadScreen = Class(Screen, function(self, owner, chest)
         local y = -160
         local btn = self.panel:AddChild(ImageButton("images/scav_pinpad.xml", "scav_pinpad_"..num..".tex"))
         btn:SetPosition(x, y)
-        btn:ForceImageSize(80, 80)
+        btn:SetScale(0.87, 0.87)
         btn:SetOnClick(function()
             self:PressNum(num)
         end)
@@ -127,8 +127,7 @@ local ScavKeypadScreen = Class(Screen, function(self, owner, chest)
 
     -- Custom Hand Cursor
     self.hand_cursor = self.root:AddChild(Image("images/Arm-removebg-preview.xml", "Arm-removebg-preview.tex"))
-    self.hand_cursor:SetScale(0.8, 0.8)
-    self.hand_cursor:SetVRegPoint(ANCHOR_TOP)
+    self.hand_cursor:SetVRegPoint(ANCHOR_BOTTOM)
     self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
     
     -- Hide hardware cursor and show custom cursor
@@ -183,13 +182,12 @@ function ScavKeypadScreen:OnUpdate(dt)
     -- Hide hardware cursor continuously
     TheInputProxy:SetCursorVisible(false)
     
-    -- Hand cursor tracks the mouse position directly
+    -- Get local mouse coordinates relative to panel center (0, 0)
     local w, h = TheSim:GetScreenSize()
     local mouse_pos = TheInput:GetScreenPosition()
     local scale = self.root:GetScale()
     local local_x = (mouse_pos.x - w / 2) / scale.x
     local local_y = (mouse_pos.y - h / 2) / scale.y
-    self.hand_cursor:SetPosition(local_x, local_y)
     
     -- Handle mouse button state for cursor swap
     local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
@@ -198,6 +196,26 @@ function ScavKeypadScreen:OnUpdate(dt)
         local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
         self.hand_cursor:SetTexture("images/"..cursor_name..".xml", cursor_name..".tex")
     end
+    
+    -- Position shoulder at the bottom of the screen (off-screen)
+    local bottom_y = -h / (2 * scale.y)
+    local shoulder_x = 0
+    local shoulder_y = bottom_y - 20
+    
+    -- Vector from shoulder to mouse position
+    local arm_dx = local_x - shoulder_x
+    local arm_dy = local_y - shoulder_y
+    local arm_dist = math.sqrt(arm_dx * arm_dx + arm_dy * arm_dy)
+    local arm_angle_rad = math.atan2(arm_dy, arm_dx)
+    local arm_angle_deg = arm_angle_rad * 180 / math.pi
+    
+    self.hand_cursor:SetPosition(shoulder_x, shoulder_y)
+    self.hand_cursor:SetRotation(90 - arm_angle_deg)
+    
+    local base_height = is_clicked and 341 or 339
+    local target_scale_y = arm_dist / base_height
+    local target_scale_x = 1.4 -- Make it look bigger!
+    self.hand_cursor:SetScale(target_scale_x, target_scale_y)
 end
 
 function ScavKeypadScreen:Close()
