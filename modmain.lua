@@ -360,9 +360,9 @@ if not TheNet:IsDedicated() then
     end)
 end
 
--- Hook OPEN_CONTAINER action to trigger lockpicking minigame on server
-local old_OPEN_CONTAINER_fn = GLOBAL.ACTIONS.OPEN_CONTAINER.fn
-GLOBAL.ACTIONS.OPEN_CONTAINER.fn = function(act, ...)
+-- Hook RUMMAGE action to trigger lockpicking minigame on server
+local old_RUMMAGE_fn = GLOBAL.ACTIONS.RUMMAGE.fn
+GLOBAL.ACTIONS.RUMMAGE.fn = function(act, ...)
     local target = act.target
     local doer = act.doer
     if target and target:HasTag("scav_chest") and target.scav_locked and target.scav_locked:value() then
@@ -380,5 +380,5 @@ GLOBAL.ACTIONS.OPEN_CONTAINER.fn = function(act, ...)
         end
         return true -- Handled/blocked standard container open slots
     end
-    return old_OPEN_CONTAINER_fn(act, ...)
+    return old_RUMMAGE_fn(act, ...)
 end
