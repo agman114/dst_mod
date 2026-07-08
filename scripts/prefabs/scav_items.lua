@@ -33,6 +33,9 @@ local function MakeItem(name, bank, build, anim, fn_custom)
         if name == "scav_bandage" then
             inst.components.inventoryitem.atlasname = "images/scav_bandage.xml"
             inst.components.inventoryitem:ChangeImageName("scav_bandage")
+        elseif name == "scav_antidote" then
+            inst.components.inventoryitem.atlasname = "images/scav_syringe.xml"
+            inst.components.inventoryitem:ChangeImageName("scav_syringe")
         end
         
         if name ~= "scav_antidote" then
@@ -57,9 +60,17 @@ end
 local function antidote_custom(inst)
     inst.scav_medical_type = "antidote"
     inst.scav_charge = net_float(inst.GUID, "scav_charge", "scav_chargedirty")
-    if TheWorld.ismastersim then
-        inst.scav_charge:set(100.0)
+    
+    if not TheWorld.ismastersim then
+        return
     end
+
+    inst.scav_charge:set(100.0)
+
+    inst:AddComponent("finiteuses")
+    inst.components.finiteuses:SetMaxUses(100)
+    inst.components.finiteuses:SetUses(100)
+    inst.components.finiteuses:SetOnFinished(inst.Remove)
 end
 
 local function splint_custom(inst)
