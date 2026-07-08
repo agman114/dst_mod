@@ -33,6 +33,13 @@ local ScavLockpickScreen = Class(Screen, function(self, owner, chest)
     self.title:SetString("ВЗЛОМ ЗАМКА")
     self.title:SetColour(0.9, 0.7, 0.2, 1)
 
+    -- Precision display
+    self.lock_precision = 1.0 + math.random() * 0.8 -- 1.0 to 1.8 degrees
+    self.precision_text = self.panel:AddChild(Text(CHATFONT, 18))
+    self.precision_text:SetPosition(-130, 215)
+    self.precision_text:SetString(string.format("Точность: %.1f°", self.lock_precision))
+    self.precision_text:SetColour(0.7, 0.7, 0.7, 1)
+
     -- Instructions
     self.instructions = self.panel:AddChild(Text(CHATFONT, 20))
     self.instructions:SetPosition(0, 165)
@@ -68,83 +75,55 @@ local ScavLockpickScreen = Class(Screen, function(self, owner, chest)
     TheInputProxy:SetCursorVisible(false)
     self.hand_cursor:Show()
 
-    -- Generate random correct index from 4 presets
-    self.presets = { 2, 4, 7, 9 }
-    self.correct_index = self.presets[math.random(1, #self.presets)]
+    -- Gameplay variables
+    self.T_target = 0.1 + math.random() * 0.8 -- Hidden correct spot (from 10% to 90% of the arch)
+    self.T_claw = 0.5
+    self.cylinder_rotation = 0
+    self.theta_max = 0
+    self.shaking = false
+    self.shake_damage_timer = 0
     self.unlocked = false
     self.last_click_state = false
 
-    -- Lay out 10 hitboxes along the arc of the scale
-    self.hitboxes = {}
-    local R = 155 -- Radius of the scale arc from keyhole center
-    local start_angle = 145 * math.pi / 180
-    local end_angle = 35 * math.pi / 180
-    
-    for i = 1, 10 do
-        local t = (i - 1) / 9
-        local angle = start_angle + t * (end_angle - start_angle)
-        local x = R * math.cos(angle)
-        local y = -20 + R * math.sin(angle)
-        
-        local btn = self.panel:AddChild(ImageButton("images/global.xml", "square.tex"))
-        btn:SetPosition(x, y)
-        btn:ForceImageSize(32, 32)
-        btn.image:SetTint(0, 0, 0, 0) -- Invisible
-        
-        btn:SetOnClick(function()
-            self:OnHitboxClicked(i)
-        end)
-        
-        table.insert(self.hitboxes, btn)
-    end
-
     self:StartUpdating()
 end)
-
-function ScavLockpickScreen:OnHitboxClicked(index)
-    if self.unlocked then return end
-    
-    local C = self.correct_index
-    local dist = math.abs(index - C)
-    
-    if dist == 0 then
-        -- Success!
-        self.unlocked = true
-        self.keyhole:SetRotation(90)
-        self.instructions:SetString("Замок успешно взломан!")
-        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
-        self.owner.SoundEmitter:PlaySound("dontstarve/common/chest_open")
-        
-        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "LockpickSuccess"), self.chest)
-        
-        self.inst:DoTaskInTime(0.5, function()
-            self:Close()
-        end)
-    else
-        -- Show feedback: keyhole rotates towards correct spot
-        local angle = math.max(0, 90 - dist * 30)
-        if C < index then
-            angle = -angle -- Rotate counter-clockwise if correct spot is to the left
-        end
-        
-        self.keyhole:SetRotation(angle)
-        self.owner.SoundEmitter:PlaySound("dontstarve/HUD/click")
-        self.instructions:SetString("Замок сопротивляется...")
-        self.instructions:SetColour(0.8, 0.8, 0.8, 1)
-    end
-end
 
 function ScavLockpickScreen:OnUpdate(dt)
     -- Hide hardware cursor continuously
     TheInputProxy:SetCursorVisible(false)
     
-    -- Position custom cursor
+    -- Get local mouse coordinates relative to panel center (0, 0)
     local w, h = TheSim:GetScreenSize()
     local mouse_pos = TheInput:GetScreenPosition()
     local scale = self.root:GetScale()
-    local local_x = (mouse_pos.x - w / 2) / scale.x
-    local local_y = (mouse_pos.y - h / 2) / scale.y
-    self.hand_cursor:SetPosition(local_x, local_y)
+    local mx = (mouse_pos.x - w / 2) / scale.x
+    local my = (mouse_pos.y - h / 2) / scale.y
+    
+    -- Calculate angle and distance relative to keyhole center (0, -20)
+    local dx = mx
+    local dy = my - (-20)
+    
+    -- When NOT holding LMB, claw follows mouse angle along the arch
+    if not self.unlocked then
+        if not TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
+            local angle_rad = math.atan2(dy, dx)
+            local angle_deg = angle_rad * 180 / math.pi
+            local T_mouse = (180 - angle_deg) / 180
+            self.T_claw = math.max(0.0, math.min(1.0, T_mouse))
+        end
+    end
+    
+    -- Position and rotate custom cursor (pointing towards keyhole center)
+    local R = 155
+    local draw_angle = 180 - (self.T_claw * 180)
+    local draw_angle_rad = draw_angle * math.pi / 180
+    local claw_x = R * math.cos(draw_angle_rad)
+    local claw_y = -20 + R * math.sin(draw_angle_rad)
+    
+    -- Offset coordinates to match the root widget scale
+    local panel_pos = self.panel:GetPosition()
+    self.hand_cursor:SetPosition(panel_pos.x + claw_x, panel_pos.y + claw_y)
+    self.hand_cursor:SetRotation(draw_angle - 90)
     
     -- Swap hand texture based on click state
     local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
@@ -152,6 +131,85 @@ function ScavLockpickScreen:OnUpdate(dt)
         self.last_click_state = is_clicked
         local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
         self.hand_cursor:SetTexture("images/"..cursor_name..".xml", cursor_name..".tex")
+    end
+    
+    -- Game logic execution
+    if is_clicked and not self.unlocked then
+        -- Calculate theta_max for current T_claw
+        local diff = math.abs(self.T_claw - self.T_target)
+        local P = self.lock_precision / 180
+        local D_max = 30 / 180 -- 30 degrees detection window
+        
+        if diff <= P then
+            self.theta_max = 180
+        elseif diff < D_max then
+            local ratio = (diff - P) / (D_max - P)
+            self.theta_max = 180 * (1.0 - ratio)
+        else
+            self.theta_max = 0
+        end
+        
+        -- Rotate cylinder clockwise towards theta_max
+        if self.cylinder_rotation < self.theta_max then
+            self.cylinder_rotation = math.min(self.theta_max, self.cylinder_rotation + 120 * dt)
+        end
+        
+        -- Jam and Shake behavior
+        if self.cylinder_rotation >= self.theta_max and self.theta_max < 179.9 then
+            self.shaking = true
+            local shake = (math.random() * 2 - 1) * 3
+            self.keyhole:SetPosition(shake, -20 + shake)
+            
+            self.shake_damage_timer = self.shake_damage_timer + dt
+            self.instructions:SetString("ОПАСНО! Замок заклинило! Отпустите кнопку!")
+            self.instructions:SetColour(1, 0.2, 0.2, 1)
+            
+            if self.shake_damage_timer >= 1.2 then
+                -- Claws hurt/break
+                self.owner.SoundEmitter:PlaySound("dontstarve/common/lightning_impact")
+                SendModRPCToServer(GetModRPC("MEGACALLLMOD", "LockpickFail"), self.chest)
+                self.shake_damage_timer = 0
+                self.cylinder_rotation = 0
+                self.shaking = false
+                self.keyhole:SetPosition(0, -20)
+            end
+        else
+            self.shaking = false
+            self.keyhole:SetPosition(0, -20)
+            self.shake_damage_timer = 0
+            self.instructions:SetString("Поворачиваем замок...")
+            self.instructions:SetColour(0.9, 0.7, 0.2, 1)
+            
+            -- Win check
+            if self.cylinder_rotation >= 179.9 then
+                self.unlocked = true
+                self.keyhole:SetRotation(180) -- Facing straight down on success
+                self.instructions:SetString("Замок успешно взломан!")
+                self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+                self.owner.SoundEmitter:PlaySound("dontstarve/common/chest_open")
+                
+                SendModRPCToServer(GetModRPC("MEGACALLLMOD", "LockpickSuccess"), self.chest)
+                
+                self.inst:DoTaskInTime(0.5, function()
+                    self:Close()
+                end)
+            end
+        end
+    else
+        -- Decay rotation back to 0 when not holding click
+        self.shaking = false
+        self.keyhole:SetPosition(0, -20)
+        self.shake_damage_timer = 0
+        if not self.unlocked then
+            self.cylinder_rotation = math.max(0, self.cylinder_rotation - 360 * dt)
+            self.instructions:SetString("Найдите верную точку на шкале!")
+            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+        end
+    end
+    
+    -- Apply rotation to keyhole widget
+    if not self.unlocked then
+        self.keyhole:SetRotation(self.cylinder_rotation)
     end
 end
 
