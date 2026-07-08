@@ -75,6 +75,7 @@ local ScavLockpickScreen = Class(Screen, function(self, owner, chest)
     self.hand_cursor:Show()
 
     -- Gameplay variables
+    math.randomseed(math.floor(TheSim:GetRealTime() * 1000))
     self.T_target = 0.1 + math.random() * 0.8 -- Hidden correct spot (from 10% to 90% of the arch)
     self.T_claw = 0.5
     self.cylinder_rotation = 0
@@ -182,6 +183,9 @@ function ScavLockpickScreen:OnUpdate(dt)
                 self.cylinder_rotation = 0
                 self.shaking = false
                 self.keyhole:SetPosition(0, -20)
+                
+                -- Randomize target again on failure
+                self.T_target = 0.1 + math.random() * 0.8
             end
         else
             self.shaking = false
