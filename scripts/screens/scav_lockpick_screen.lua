@@ -67,8 +67,7 @@ local ScavLockpickScreen = Class(Screen, function(self, owner, chest)
 
     -- Custom Hand Cursor
     self.hand_cursor = self.root:AddChild(Image("images/Arm-removebg-preview.xml", "Arm-removebg-preview.tex"))
-    self.hand_cursor:SetScale(0.8, 0.8)
-    self.hand_cursor:SetVRegPoint(ANCHOR_TOP)
+    self.hand_cursor:SetVRegPoint(ANCHOR_BOTTOM)
     self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
     
     -- Hide hardware cursor and show custom cursor
@@ -120,11 +119,6 @@ function ScavLockpickScreen:OnUpdate(dt)
     local claw_x = R * math.cos(draw_angle_rad)
     local claw_y = -20 + R * math.sin(draw_angle_rad)
     
-    -- Offset coordinates to match the root widget scale
-    local panel_pos = self.panel:GetPosition()
-    self.hand_cursor:SetPosition(panel_pos.x + claw_x, panel_pos.y + claw_y)
-    self.hand_cursor:SetRotation(draw_angle - 90)
-    
     -- Swap hand texture based on click state
     local is_clicked = TheInput:IsMouseDown(MOUSEBUTTON_LEFT)
     if is_clicked ~= self.last_click_state then
@@ -132,6 +126,26 @@ function ScavLockpickScreen:OnUpdate(dt)
         local cursor_name = is_clicked and "ArmFist-removebg-preview" or "Arm-removebg-preview"
         self.hand_cursor:SetTexture("images/"..cursor_name..".xml", cursor_name..".tex")
     end
+    
+    -- Position shoulder at the bottom of the screen (off-screen)
+    local bottom_y = -h / (2 * scale.y)
+    local shoulder_x = 0
+    local shoulder_y = bottom_y - 20
+    
+    -- Vector from shoulder to claw position
+    local arm_dx = claw_x - shoulder_x
+    local arm_dy = claw_y - shoulder_y
+    local arm_dist = math.sqrt(arm_dx * arm_dx + arm_dy * arm_dy)
+    local arm_angle_rad = math.atan2(arm_dy, arm_dx)
+    local arm_angle_deg = arm_angle_rad * 180 / math.pi
+    
+    self.hand_cursor:SetPosition(shoulder_x, shoulder_y)
+    self.hand_cursor:SetRotation(arm_angle_deg - 90)
+    
+    local base_height = is_clicked and 341 or 339
+    local target_scale_y = arm_dist / base_height
+    local target_scale_x = 1.4 -- Make it look bigger!
+    self.hand_cursor:SetScale(target_scale_x, target_scale_y)
     
     -- Game logic execution
     if is_clicked and not self.unlocked then
