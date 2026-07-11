@@ -105,6 +105,8 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
 
     self.limb_images = {}
     self.limb_texts = {}
+    self.limb_bleed_icons = {}
+    self.limb_bone_icons = {}
 
     for limb_name, data in pairs(self.limb_layout) do
         local atlas, tex = GetUIAsset(data.asset, data.fallback_atlas, data.fallback_tex)
@@ -134,6 +136,42 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
         
         self.limb_images[limb_name] = img
         self.limb_texts[limb_name] = btn_text
+
+        -- Position the icons in a smart way based on limb layout
+        local bleed_x, bleed_y, bone_x, bone_y
+        if limb_name == "left_arm" then
+            bleed_x, bleed_y = data.x - 30, data.y + 10
+            bone_x, bone_y = data.x - 60, data.y + 10
+        elseif limb_name == "right_arm" then
+            bleed_x, bleed_y = data.x + 30, data.y + 10
+            bone_x, bone_y = data.x + 60, data.y + 10
+        elseif limb_name == "left_leg" then
+            bleed_x, bleed_y = data.x - 10, data.y - 40
+            bone_x, bone_y = data.x - 10, data.y - 70
+        elseif limb_name == "right_leg" then
+            bleed_x, bleed_y = data.x + 10, data.y - 40
+            bone_x, bone_y = data.x + 10, data.y - 70
+        elseif limb_name == "torso" then
+            bleed_x, bleed_y = data.x - 20, data.y + 20
+            bone_x, bone_y = data.x + 20, data.y + 20
+        else
+            bleed_x, bleed_y = data.x - 20, data.y + 20
+            bone_x, bone_y = data.x + 20, data.y + 20
+        end
+
+        if limb_name ~= "head" then
+            local bleed_icon = self.panel:AddChild(Image("images/scav_blood_drop.xml", "scav_blood_drop.tex"))
+            bleed_icon:SetPosition(bleed_x, bleed_y)
+            bleed_icon:SetSize(25, 38)
+            bleed_icon:Hide()
+            self.limb_bleed_icons[limb_name] = bleed_icon
+
+            local bone_icon = self.panel:AddChild(Image("images/scav_bone_icon.xml", "scav_bone_icon.tex"))
+            bone_icon:SetPosition(bone_x, bone_y)
+            bone_icon:SetSize(25, 38)
+            bone_icon:Hide()
+            self.limb_bone_icons[limb_name] = bone_icon
+        end
     end
 
     -- Circular wrapping variables & assets
@@ -192,6 +230,36 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.hand_cursor:SetHRegPoint(ANCHOR_MIDDLE)
     self.hand_cursor:Hide()
 
+    -- Bone resetting minigame widgets
+    self.bone_reset_active = false
+    self.bone_reset_limb = nil
+    self.bone_jerk_count = 0
+    self.bone_target_pos = { x = 80, y = 40 }
+    self.bone_current_pos = { x = 180, y = 0 }
+    self.bone_current_rot = 35
+    self.bone_grabbed = false
+
+    -- Silhouette target bone (transparent grey whole bone)
+    self.bone_silhouette = self.panel:AddChild(Image("images/scav_bone_whole.xml", "scav_bone_whole.tex"))
+    self.bone_silhouette:SetPosition(0, 40)
+    self.bone_silhouette:SetSize(320, 117)
+    self.bone_silhouette:SetTint(1, 1, 1, 0.25)
+    self.bone_silhouette:Hide()
+
+    -- Static left bone fragment
+    self.bone_left_part = self.panel:AddChild(Image("images/scav_bone_left.xml", "scav_bone_left.tex"))
+    self.bone_left_part:SetPosition(-80, 40)
+    self.bone_left_part:SetSize(180, 110)
+    self.bone_left_part:Hide()
+
+    -- Interactive/moving broken right bone fragment (solid red overlay)
+    self.bone_interactive = self.panel:AddChild(Image("images/scav_bone_right.xml", "scav_bone_right.tex"))
+    self.bone_interactive:SetPosition(self.bone_current_pos.x, self.bone_current_pos.y)
+    self.bone_interactive:SetSize(180, 110)
+    self.bone_interactive:SetRotation(self.bone_current_rot)
+    self.bone_interactive:SetTint(1, 0.2, 0.2, 0.95)
+    self.bone_interactive:Hide()
+
     self.was_clicked = nil
 
     self:UpdateLimbHealth()
@@ -202,44 +270,49 @@ function ScavMedicalScreen:UpdateLimbHealth()
     local inst = self.owner
     if not inst then return end
 
+    local function GetLimbStatus(name)
+        if name == "head" then
+            return "ОК", { 1, 1, 1, 1 }
+        end
+        local is_broken = inst["scav_broken_" .. name] and inst["scav_broken_" .. name]:value() or false
+        local is_bleeding = inst["scav_bleeding_" .. name] and inst["scav_bleeding_" .. name]:value() or false
+        
+        if is_broken and is_bleeding then
+            return "Перелом+Кров.", { 1, 0.3, 0.1, 1 }
+        elseif is_broken then
+            return "Перелом", { 1, 0.5, 0, 1 }
+        elseif is_bleeding then
+            return "Кровотечение", { 1, 0.2, 0.2, 1 }
+        else
+            return "ОК", { 1, 1, 1, 1 }
+        end
+    end
+
     local health_data = {
-        head = { 
-            health = inst.scav_limb_head and inst.scav_limb_head:value() or 100, 
-            status = "ОК",
-            colour = { 1, 1, 1, 1 }
-        },
-        torso = { 
-            health = inst.scav_limb_torso and inst.scav_limb_torso:value() or 100, 
-            status = inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() and "Кровотечение" or "ОК",
-            colour = inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() and { 1, 0.2, 0.2, 1 } or { 1, 1, 1, 1 }
-        },
-        left_arm = { 
-            health = inst.scav_limb_left_arm and inst.scav_limb_left_arm:value() or 100, 
-            status = inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() and "Перелом" or "ОК",
-            colour = inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() and { 1, 0.5, 0, 1 } or { 1, 1, 1, 1 }
-        },
-        right_arm = { 
-            health = inst.scav_limb_right_arm and inst.scav_limb_right_arm:value() or 100, 
-            status = inst.scav_broken_right_arm and inst.scav_broken_right_arm:value() and "Перелом" or "ОК",
-            colour = inst.scav_broken_right_arm and inst.scav_broken_right_arm:value() and { 1, 0.5, 0, 1 } or { 1, 1, 1, 1 }
-        },
-        left_leg = { 
-            health = inst.scav_limb_left_leg and inst.scav_limb_left_leg:value() or 100, 
-            status = inst.scav_broken_left_leg and inst.scav_broken_left_leg:value() and "Перелом" or "ОК",
-            colour = inst.scav_broken_left_leg and inst.scav_broken_left_leg:value() and { 1, 0.5, 0, 1 } or { 1, 1, 1, 1 }
-        },
-        right_leg = { 
-            health = inst.scav_limb_right_leg and inst.scav_limb_right_leg:value() or 100, 
-            status = inst.scav_broken_right_leg and inst.scav_broken_right_leg:value() and "Перелом" or "ОК",
-            colour = inst.scav_broken_right_leg and inst.scav_broken_right_leg:value() and { 1, 0.5, 0, 1 } or { 1, 1, 1, 1 }
-        },
+        head = { health = inst.scav_limb_head and inst.scav_limb_head:value() or 100 },
+        torso = { health = inst.scav_limb_torso and inst.scav_limb_torso:value() or 100 },
+        left_arm = { health = inst.scav_limb_left_arm and inst.scav_limb_left_arm:value() or 100 },
+        right_arm = { health = inst.scav_limb_right_arm and inst.scav_limb_right_arm:value() or 100 },
+        left_leg = { health = inst.scav_limb_left_leg and inst.scav_limb_left_leg:value() or 100 },
+        right_leg = { health = inst.scav_limb_right_leg and inst.scav_limb_right_leg:value() or 100 },
     }
 
     for name, data in pairs(health_data) do
+        local status, colour = GetLimbStatus(name)
         local txt = self.limb_texts[name]
         if txt then
-            txt:SetString(string.format("%d%% (%s)", data.health, data.status))
-            txt:SetColour(data.colour[1], data.colour[2], data.colour[3], data.colour[4])
+            txt:SetString(string.format("%d%% (%s)", data.health, status))
+            txt:SetColour(colour[1], colour[2], colour[3], colour[4])
+        end
+
+        local is_broken = name ~= "head" and inst["scav_broken_" .. name] and inst["scav_broken_" .. name]:value() or false
+        local is_bleeding = name ~= "head" and inst["scav_bleeding_" .. name] and inst["scav_bleeding_" .. name]:value() or false
+
+        if self.limb_bleed_icons[name] then
+            if is_bleeding then self.limb_bleed_icons[name]:Show() else self.limb_bleed_icons[name]:Hide() end
+        end
+        if self.limb_bone_icons[name] then
+            if is_broken then self.limb_bone_icons[name]:Show() else self.limb_bone_icons[name]:Hide() end
         end
     end
 end
@@ -254,10 +327,18 @@ function ScavMedicalScreen:SetLimbUIActive(active)
     for _, txt in pairs(self.limb_texts) do
         if active then txt:Show() else txt:Hide() end
     end
+
+    -- Sync overlays
+    if active then
+        self:UpdateLimbHealth()
+    else
+        for _, icon in pairs(self.limb_bleed_icons) do icon:Hide() end
+        for _, icon in pairs(self.limb_bone_icons) do icon:Hide() end
+    end
 end
 
 function ScavMedicalScreen:OnLimbClicked(limb_name)
-    if self.wrapping_active then return end
+    if self.wrapping_active or self.bone_reset_active then return end
 
     local inst = self.owner
     self.item = nil
@@ -273,7 +354,8 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
     end
 
     local is_broken = false
-    if limb_name == "left_arm" and inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() then is_broken = true
+    if limb_name == "torso" and inst.scav_broken_torso and inst.scav_broken_torso:value() then is_broken = true
+    elseif limb_name == "left_arm" and inst.scav_broken_left_arm and inst.scav_broken_left_arm:value() then is_broken = true
     elseif limb_name == "right_arm" and inst.scav_broken_right_arm and inst.scav_broken_right_arm:value() then is_broken = true
     elseif limb_name == "left_leg" and inst.scav_broken_left_leg and inst.scav_broken_left_leg:value() then is_broken = true
     elseif limb_name == "right_leg" and inst.scav_broken_right_leg and inst.scav_broken_right_leg:value() then is_broken = true
@@ -288,21 +370,11 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         target_type = "splint"
     elseif is_poisoned then
         target_type = "antidote"
-    else
-        -- Default to first available item for testing/training on healthy limbs
-        local bandage = FindMedicalItem(inst, "bandage")
-        local splint = FindMedicalItem(inst, "splint")
-        local antidote = FindMedicalItem(inst, "antidote")
-        
-        if bandage then target_type = "bandage"
-        elseif splint then target_type = "splint"
-        elseif antidote then target_type = "antidote"
-        end
     end
 
     if not target_type then
-        self.instructions:SetString("У вас нет медицинских предметов для лечения!")
-        self.instructions:SetColour(1, 0.3, 0.3, 1)
+        self.instructions:SetString("Эта часть тела здорова и не требует лечения!")
+        self.instructions:SetColour(0.8, 0.8, 0.8, 1)
         return
     end
 
@@ -358,15 +430,40 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
         if not is_broken then
             self.instructions:SetString("Конечность цела, но накладываем шину для теста...")
             self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+            self.owner:DoTaskInTime(1.5, function()
+                SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, limb_name)
+                self:Close()
+            end)
         else
-            self.instructions:SetString("Накладываем шину...")
-            self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+            -- TRIGGER THE BONE RESETTING MINIGAME!
+            self.bone_reset_active = true
+            self.bone_reset_limb = limb_name
+            self.bone_jerk_count = 0
+            self.bone_grabbed = false
+            
+            -- Initialize position/rotation randomly off-target
+            self.bone_current_pos = { x = math.random() > 0.5 and 180 or 150, y = math.random(-20, 20) }
+            self.bone_start_pos = { x = self.bone_current_pos.x, y = self.bone_current_pos.y }
+            self.bone_current_rot = math.random() > 0.5 and 35 or -35
+            self.initial_bone_rot = self.bone_current_rot
+            
+            self:SetLimbUIActive(false)
+            
+            self.bone_silhouette:Show()
+            self.bone_left_part:Show()
+            self.bone_interactive:SetPosition(self.bone_current_pos.x, self.bone_current_pos.y)
+            self.bone_interactive:SetRotation(self.bone_current_rot)
+            self.bone_interactive:Show()
+            
+            self.instructions:SetString("Зажмите и тащите кость к левой части для совмещения!")
+            self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+            
+            if TheInputProxy then
+                TheInputProxy:SetCursorVisible(false)
+            end
+            self.hand_cursor:Show()
+            self.was_clicked = nil
         end
-        
-        self.owner:DoTaskInTime(1.5, function()
-            SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, limb_name)
-            self:Close()
-        end)
     
     elseif self.item_type == "antidote" then
         self.injection_active = true
@@ -412,7 +509,7 @@ end
 function ScavMedicalScreen:OnUpdate(dt)
     self:UpdateLimbHealth()
 
-    if self.wrapping_active or self.injection_active then
+    if self.wrapping_active or self.injection_active or self.bone_reset_active then
         -- Follow mouse with custom hand cursor
         local w, h = TheSim:GetScreenSize()
         local mouse_pos = TheInput:GetScreenPosition()
@@ -526,7 +623,7 @@ function ScavMedicalScreen:OnUpdate(dt)
                 local cooldown = self.owner.scav_overdose_cooldown and self.owner.scav_overdose_cooldown:value() or 0
                 if cooldown > 0 and not self.cooldown_triggered_this_session then
                     -- They are injecting during active cooldown!
-                    -- Accumulate damage timer to deal 5 damage every 1.0 second
+                    -- Accumulate damage timer to trigger bleeding on active limb
                     self.cooldown_damage_timer = (self.cooldown_damage_timer or 0) + dt
                     if self.cooldown_damage_timer >= 1.0 then
                         self.cooldown_damage_timer = 0
@@ -537,11 +634,11 @@ function ScavMedicalScreen:OnUpdate(dt)
                             self.injected_this_session = 0
                         end
 
-                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 5)
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), self.wrapping_limb)
                         self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
                     end
                     
-                    self.instructions:SetString(string.format("ПЕРЕДОЗИРОВКА! -5 ХП/сек! (Откат: %d сек)", math.ceil(cooldown)))
+                    self.instructions:SetString(string.format("ПЕРЕДОЗИРОВКА! Вызывает кровотечение! (Откат: %d сек)", math.ceil(cooldown)))
                     self.instructions:SetColour(1, 0.2, 0.2, 1)
                 else
                     -- Touch timer accumulates
@@ -566,8 +663,8 @@ function ScavMedicalScreen:OnUpdate(dt)
                             self.injected_this_session = 0
                         end
 
-                        -- Deal 100 one-shot damage on server
-                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), 100)
+                        -- Trigger bleeding on server
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyOverdose"), self.wrapping_limb)
                         self.owner.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
                         self:Close()
                     else
@@ -639,6 +736,79 @@ function ScavMedicalScreen:OnUpdate(dt)
             
             self.syringe_liquid:SetSize(38, h)
             self.syringe_liquid:SetPosition(self.syringe_pos.x, self.syringe_pos.y - 40 + y)
+        
+        elseif self.bone_reset_active then
+            if TheInput:IsMouseDown(MOUSEBUTTON_LEFT) then
+                if not self.bone_grabbed then
+                    local dx = local_x - self.bone_current_pos.x
+                    local dy = local_y - self.bone_current_pos.y
+                    if math.abs(dx) < 90 and math.abs(dy) < 55 then
+                        self.bone_grabbed = true
+                        self.prev_mouse_x = local_x
+                        self.prev_mouse_y = local_y
+                    end
+                end
+
+                if self.bone_grabbed then
+                    -- The bone follows the mouse position!
+                    self.bone_current_pos.x = local_x
+                    self.bone_current_pos.y = local_y
+                    
+                    -- Calculate distance to target (80, 40)
+                    local dx = self.bone_target_pos.x - self.bone_current_pos.x
+                    local dy = self.bone_target_pos.y - self.bone_current_pos.y
+                    local dist = math.sqrt(dx * dx + dy * dy)
+                    
+                    -- Rotation dynamically straightens to 0 as it approaches target
+                    local progress = math.max(0, math.min(1, 1 - (dist / 180)))
+                    self.bone_current_rot = self.initial_bone_rot * (1 - progress)
+                    
+                    if dist < 30 then
+                        self.instructions:SetString("Отпустите кнопку мыши, чтобы вправить кость!")
+                        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+                    else
+                        self.instructions:SetString("Совместите кость с силуэтом слева!")
+                        self.instructions:SetColour(0.8, 0.8, 0.8, 1)
+                    end
+                    
+                    self.prev_mouse_x = local_x
+                    self.prev_mouse_y = local_y
+                    self.bone_interactive:SetPosition(self.bone_current_pos.x, self.bone_current_pos.y)
+                    self.bone_interactive:SetRotation(self.bone_current_rot)
+                end
+            else
+                if self.bone_grabbed then
+                    local dx = self.bone_target_pos.x - self.bone_current_pos.x
+                    local dy = self.bone_target_pos.y - self.bone_current_pos.y
+                    local dist = math.sqrt(dx * dx + dy * dy)
+                    if dist < 30 then
+                        -- Snap in and finish!
+                        self.bone_current_pos = { x = self.bone_target_pos.x, y = self.bone_target_pos.y }
+                        self.bone_current_rot = 0
+                        self.instructions:SetString("Кость вправлена!")
+                        self.instructions:SetColour(0.3, 0.9, 0.3, 1)
+                        self.owner.SoundEmitter:PlaySound("dontstarve/common/chest_open")
+                        
+                        self.bone_reset_active = false
+                        self.bone_silhouette:Hide()
+                        self.bone_left_part:Hide()
+                        self.bone_interactive:Hide()
+                        
+                        SendModRPCToServer(GetModRPC("MEGACALLLMOD", "ApplyTreatment"), self.item, self.bone_reset_limb)
+                        self.inst:DoTaskInTime(0.6, function() self:Close() end)
+                    else
+                        -- Reset back to start position
+                        self.owner.SoundEmitter:PlaySound("dontstarve/common/destroy_stone")
+                        self.bone_current_pos = { x = self.bone_start_pos.x, y = self.bone_start_pos.y }
+                        self.bone_current_rot = self.initial_bone_rot
+                        self.bone_interactive:SetPosition(self.bone_current_pos.x, self.bone_current_pos.y)
+                        self.bone_interactive:SetRotation(self.bone_current_rot)
+                    end
+                end
+                self.bone_grabbed = false
+                self.prev_mouse_x = nil
+                self.prev_mouse_y = nil
+            end
         end
     end
 end
@@ -646,12 +816,22 @@ end
 function ScavMedicalScreen:Close()
     self.wrapping_active = false
     self.injection_active = false
+    self.bone_reset_active = false
     if self.injected_this_session and self.injected_this_session > 0.1 then
         SendModRPCToServer(GetModRPC("MEGACALLLMOD", "UpdateSyringe"), self.item, self.injected_this_session)
         self.injected_this_session = 0
     end
     if self.body_target then
         self.body_target:Hide()
+    end
+    if self.bone_silhouette then
+        self.bone_silhouette:Hide()
+    end
+    if self.bone_left_part then
+        self.bone_left_part:Hide()
+    end
+    if self.bone_interactive then
+        self.bone_interactive:Hide()
     end
     if TheInputProxy then
         TheInputProxy:SetCursorVisible(true) -- Restore hardware cursor
@@ -667,6 +847,8 @@ function ScavMedicalScreen:OnControl(control, down)
         self:Close()
         return true
     end
+
+
     
     return true
 end

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_blood_drop.tex" />
+	<Elements>
+		<Element name="scav_blood_drop.tex" u1="0.00390625" u2="0.988281" v1="0.216797" v2="0.998047" />
+	</Elements>
+</Atlas>

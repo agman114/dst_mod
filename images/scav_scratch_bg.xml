@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_scratch_bg.tex" />
+	<Elements>
+		<Element name="scav_scratch_bg.tex" u1="0.000976563" u2="0.526367" v1="0.111328" v2="0.998047" />
+	</Elements>
+</Atlas>

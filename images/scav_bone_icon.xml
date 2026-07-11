@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_bone_icon.tex" />
+	<Elements>
+		<Element name="scav_bone_icon.tex" u1="0.00390625" u2="0.824219" v1="0.376953" v2="0.998047" />
+	</Elements>
+</Atlas>

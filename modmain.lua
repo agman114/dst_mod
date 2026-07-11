@@ -77,6 +77,26 @@ Assets = {
     Asset("IMAGE", "images/scav_lock_scale.tex"),
     Asset("ATLAS", "images/scav_pinpad.xml"),
     Asset("IMAGE", "images/scav_pinpad.tex"),
+    Asset("ATLAS", "images/scav_blood_drop.xml"),
+    Asset("IMAGE", "images/scav_blood_drop.tex"),
+    Asset("ATLAS", "images/scav_bone_icon.xml"),
+    Asset("IMAGE", "images/scav_bone_icon.tex"),
+    Asset("ATLAS", "images/scav_bone_left.xml"),
+    Asset("IMAGE", "images/scav_bone_left.tex"),
+    Asset("ATLAS", "images/scav_bone_right.xml"),
+    Asset("IMAGE", "images/scav_bone_right.tex"),
+    Asset("ATLAS", "images/scav_bone_whole.xml"),
+    Asset("IMAGE", "images/scav_bone_whole.tex"),
+    Asset("ATLAS", "images/scav_scratch_marks.xml"),
+    Asset("IMAGE", "images/scav_scratch_marks.tex"),
+    Asset("ATLAS", "images/scav_claw_hand.xml"),
+    Asset("IMAGE", "images/scav_claw_hand.tex"),
+    Asset("ATLAS", "images/scav_scratch_bg.xml"),
+    Asset("IMAGE", "images/scav_scratch_bg.tex"),
+    Asset("ATLAS", "images/scav_arm_normal.xml"),
+    Asset("IMAGE", "images/scav_arm_normal.tex"),
+    Asset("ATLAS", "images/scav_fatigue_icon.xml"),
+    Asset("IMAGE", "images/scav_fatigue_icon.tex"),
 }
 
 -- Prefab files to load
@@ -109,11 +129,18 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.SCAV_SPLINT = "Шина для фиксац�
 
 AddModCharacter("mycharacter", "MALE")
 
--- Register custom inventory item atlas mapping (so both client and server resolve it correctly)
 if GLOBAL.rawget(GLOBAL, "RegisterInventoryItemAtlas") then
     GLOBAL.RegisterInventoryItemAtlas("images/scav_bandage.xml", "scav_bandage.tex")
     GLOBAL.RegisterInventoryItemAtlas("images/scav_syringe.xml", "scav_syringe.tex")
 end
+
+AddClassPostConstruct("widgets/statusdisplays", function(self)
+    if self.owner and self.owner:HasTag("scav_unarmed_worker") then
+        local ScavFatigueBadge = require("widgets/scav_fatigue_badge")
+        self.scav_fatigue_badge = self:AddChild(ScavFatigueBadge(self.owner))
+        self.scav_fatigue_badge:SetPosition(-70, -45)
+    end
+end)
 
 --------------------------------------------------------------------------------
 -- REGISTER MOD RPCs (Network Sync Client -> Server)
@@ -152,10 +179,23 @@ AddModRPCHandler("MEGACALLLMOD", "ApplyTreatment", function(player, item, limb_n
     end
 end)
 
-AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player, amount)
-    local dmg = amount or 15
-    if player and player:IsValid() and player.components.health and not player.components.health:IsDead() then
-        player.components.health:DoDelta(-dmg, false, "overdose")
+AddModRPCHandler("MEGACALLLMOD", "ApplyOverdose", function(player, limb_name)
+    if player and player:IsValid() and player.components.scav_health and limb_name then
+        player.components.scav_health:SetLimbBleeding(limb_name, true)
+    end
+end)
+
+AddModRPCHandler("MEGACALLLMOD", "ApplySanityScratch", function(player)
+    if player and player:IsValid() and player.components.scav_health then
+        local arms = { "left_arm", "right_arm" }
+        local chosen_arm = arms[math.random(#arms)]
+        player.components.scav_health:SetLimbBleeding(chosen_arm, true)
+        if player.SoundEmitter then
+            player.SoundEmitter:PlaySound("dontstarve/characters/wilson/hurt")
+        end
+        if player.components.talker then
+            player.components.talker:Say("Ааах! Я разодрал себе руку!")
+        end
     end
 end)
 
@@ -194,6 +234,14 @@ AddModRPCHandler("MEGACALLLMOD", "UpdateSyringe", function(player, item, injecte
                     player.components.inventory:ConsumeByName(item.prefab, 1)
                 end
             end
+        end
+    end
+end)
+
+AddModRPCHandler("MEGACALLLMOD", "TriggerSleep", function(player)
+    if player and player:IsValid() and player.components.scav_health then
+        if not player:HasTag("playerghost") and not player.components.health:IsDead() then
+            player.components.scav_health:TryStartSleep()
         end
     end
 end)
@@ -384,4 +432,15 @@ GLOBAL.ACTIONS.RUMMAGE.fn = function(act, ...)
         return true -- Handled/blocked standard container open slots
     end
     return old_RUMMAGE_fn(act, ...)
+end
+
+-- Global console command helper for debug
+GLOBAL.c_setfatigue = function(val)
+    local player = GLOBAL.ThePlayer
+    if player and player.components.scav_health then
+        player.components.scav_health.fatigue = math.max(0, math.min(100, val))
+        player.components.scav_health:SyncToNetVars()
+        player.components.scav_health:ApplyEffects()
+        print("[SCAV Debug] Set fatigue to: " .. tostring(val))
+    end
 end

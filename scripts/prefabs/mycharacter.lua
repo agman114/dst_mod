@@ -41,6 +41,7 @@ local function common_postinit(inst)
     inst.scav_broken_right_arm = net_bool(inst.GUID, "scav_broken_right_arm")
     inst.scav_broken_left_leg = net_bool(inst.GUID, "scav_broken_left_leg")
     inst.scav_broken_right_leg = net_bool(inst.GUID, "scav_broken_right_leg")
+    inst.scav_broken_torso = net_bool(inst.GUID, "scav_broken_torso")
 
     inst.scav_bleeding_torso = net_bool(inst.GUID, "scav_bleeding_torso")
     inst.scav_bleeding_left_arm = net_bool(inst.GUID, "scav_bleeding_left_arm")
@@ -50,8 +51,20 @@ local function common_postinit(inst)
 
     inst.scav_poisoned = net_bool(inst.GUID, "scav_poisoned")
     inst.scav_overdose_cooldown = net_float(inst.GUID, "scav_overdose_cooldown")
+    inst.scav_sanity_slow_walk = net_bool(inst.GUID, "scav_sanity_slow_walk")
+    inst.scav_fatigue = net_float(inst.GUID, "scav_fatigue")
+    inst.scav_sleeping = net_bool(inst.GUID, "scav_sleeping")
+
+    -- Prevent shadow monsters from aggroing (remove sanity_creatures tag immediately)
+    inst:RemoveTag("sanity_creatures")
+    inst:ListenForEvent("tagadded", function(inst, data)
+        if data and data.tag == "sanity_creatures" then
+            inst:RemoveTag("sanity_creatures")
+        end
+    end)
 
     inst.scav_trigger_lockpick = net_event(inst.GUID, "scav_trigger_lockpick")
+    inst.scav_trigger_scratch = net_event(inst.GUID, "scav_trigger_scratch")
 
     inst:ListenForEvent("scav_trigger_lockpick", function(inst)
         local env = getfenv()
@@ -75,6 +88,32 @@ local function common_postinit(inst)
             end
         end
     end)
+
+    inst:ListenForEvent("scav_trigger_scratch", function(inst)
+        local env = getfenv()
+        if inst == env.ThePlayer then
+            local TheFrontEnd = env.TheFrontEnd
+            local ScavScratchScreen = require("screens/scav_scratch_screen")
+            if not TheFrontEnd:GetActiveScreen() or TheFrontEnd:GetActiveScreen().name ~= "ScavScratchScreen" then
+                TheFrontEnd:PushScreen(ScavScratchScreen(inst))
+            end
+        end
+    end)
+
+    if not getfenv().TheNet:IsDedicated() then
+        inst:DoTaskInTime(1, function(inst)
+            local env = getfenv()
+            local _G = getfenv(0)
+            if inst == env.ThePlayer then
+                _G.TheInput:AddKeyDownHandler(_G.KEY_Z, function()
+                    local TheFrontEnd = _G.TheFrontEnd
+                    if TheFrontEnd and (TheFrontEnd:GetActiveScreen() == nil or TheFrontEnd:GetActiveScreen().name == "HUD") then
+                        _G.SendModRPCToServer(_G.GetModRPC("MEGACALLLMOD", "TriggerSleep"))
+                    end
+                end)
+            end
+        end)
+    end
 end
 
 -- This is called only on the server
@@ -161,10 +200,26 @@ local function master_postinit(inst)
     inst:ListenForEvent("actioncomplete", RemoveTempFist)
     inst:ListenForEvent("actionfailed", RemoveTempFist)
 
-    -- Spawn start chests (both types)
+    -- Spawn start chests (both types) and give medical items to player
     inst:DoTaskInTime(3, function(inst)
         if not inst.scav_spawned_start_chest then
             inst.scav_spawned_start_chest = true
+
+            -- Give items for easy testing
+            if inst.components.inventory then
+                local function GiveItem(prefab, count)
+                    for i = 1, count do
+                        local item = SpawnPrefab(prefab)
+                        if item then
+                            inst.components.inventory:GiveItem(item)
+                        end
+                    end
+                end
+                GiveItem("scav_splint", 5)
+                GiveItem("scav_bandage", 5)
+                GiveItem("scav_antidote", 2)
+            end
+
             local spawner = require("scav_chest_spawner")
             if spawner and spawner.SpawnChestNearPlayer then
                 spawner.SpawnChestNearPlayer(inst, "scav_chest")
