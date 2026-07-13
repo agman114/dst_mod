@@ -213,6 +213,17 @@ function ScavHealth:ApplyEffects()
     if inst.AnimState then
         inst.AnimState:SetDeltaTimeMultiplier(anim_speed)
     end
+
+    -- Retrieve leveling stats
+    local strength_level = 1
+    local endurance_level = 1
+    if inst.components.scav_levels then
+        strength_level = inst.components.scav_levels.strength_level or 1
+        endurance_level = inst.components.scav_levels.endurance_level or 1
+    end
+
+    local endurance_speed_mult = 1.0 + endurance_level * 0.0015
+    speed_mult = speed_mult * endurance_speed_mult
     
     if inst.components.locomotor then
         inst.components.locomotor.runspeed = 6.6 * speed_mult
@@ -230,16 +241,25 @@ function ScavHealth:ApplyEffects()
         end
     end
 
-    -- 3. Arm injuries (combat penalty or drop weapon)
+    -- 3. Arm injuries and Strength damage/work multipliers
+    local strength_damage_mult = 1.0 + strength_level * 0.0025
     if self.limbs.left_arm.broken or self.limbs.right_arm.broken then
         -- Decreased attack speed/multiplier
         if inst.components.combat then
-            inst.components.combat.damagemultiplier = 0.75
+            inst.components.combat.damagemultiplier = 0.75 * strength_damage_mult
         end
     else
         if inst.components.combat then
-            inst.components.combat.damagemultiplier = 1.0
+            inst.components.combat.damagemultiplier = 1.0 * strength_damage_mult
         end
+    end
+
+    -- Apply Strength resource gathering speed (work multiplier)
+    local strength_work_mult = 1.0 + strength_level * 0.0025
+    if inst.components.workmultiplier then
+        inst.components.workmultiplier:AddMultiplier(_G.ACTIONS.CHOP, strength_work_mult, "scav_strength")
+        inst.components.workmultiplier:AddMultiplier(_G.ACTIONS.MINE, strength_work_mult, "scav_strength")
+        inst.components.workmultiplier:AddMultiplier(_G.ACTIONS.DIG, strength_work_mult, "scav_strength")
     end
 end
 

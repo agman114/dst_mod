@@ -444,3 +444,125 @@ GLOBAL.c_setfatigue = function(val)
         print("[SCAV Debug] Set fatigue to: " .. tostring(val))
     end
 end
+
+-- Hook Builder:RemoveIngredients for Intellect free crafting chance
+local Builder = GLOBAL.require("components/builder")
+if Builder then
+    local old_RemoveIngredients = Builder.RemoveIngredients
+    Builder.RemoveIngredients = function(self, ingredients, recname, discounted, ...)
+        local free_craft_chance = 0
+        if self.inst.components.scav_levels then
+            free_craft_chance = self.inst.components.scav_levels:GetFreeCraftChance()
+        end
+
+        if free_craft_chance > 0 and GLOBAL.math.random() < free_craft_chance then
+            -- Free craft!
+            if self.inst.components.talker then
+                self.inst.components.talker:Say("Скрафчено бесплатно благодаря интеллекту! (Шанс: " .. tostring(free_craft_chance * 100) .. "%)")
+            end
+            return
+        end
+
+        return old_RemoveIngredients(self, ingredients, recname, discounted, ...)
+    end
+end
+
+-- Hook controls widget to add levels display at bottom-center of the screen
+AddClassPostConstruct("widgets/controls", function(self)
+    if self.owner and self.owner:HasTag("scav_unarmed_worker") then
+        local ScavLevelsDisplay = require("widgets/scav_levels_display")
+        self.scav_levels_display = self:AddChild(ScavLevelsDisplay(self.owner))
+        self.scav_levels_display:SetHAnchor(GLOBAL.ANCHOR_MIDDLE)
+        self.scav_levels_display:SetVAnchor(GLOBAL.ANCHOR_BOTTOM)
+        self.scav_levels_display:SetPosition(0, 110)
+    end
+end)
+
+-- Levels debug console commands
+GLOBAL.c_setstrength = function(val)
+    local player = GLOBAL.ThePlayer
+    if player and player.components.scav_levels then
+        player.components.scav_levels.strength_level = GLOBAL.math.max(1, GLOBAL.math.min(100, val))
+        player.components.scav_levels.strength_kills = 0
+        player.components.scav_levels:SyncToNetVars()
+        player.components.scav_levels:ApplyBuffs()
+        print("[SCAV Debug] Set strength level to: " .. tostring(val))
+    end
+end
+
+GLOBAL.c_setintellect = function(val)
+    local player = GLOBAL.ThePlayer
+    if player and player.components.scav_levels then
+        player.components.scav_levels.intellect_level = GLOBAL.math.max(1, GLOBAL.math.min(100, val))
+        player.components.scav_levels:SyncToNetVars()
+        player.components.scav_levels:ApplyBuffs()
+        print("[SCAV Debug] Set intellect level to: " .. tostring(val))
+    end
+end
+
+GLOBAL.c_setendurance = function(val)
+    local player = GLOBAL.ThePlayer
+    if player and player.components.scav_levels then
+        player.components.scav_levels.endurance_level = GLOBAL.math.max(1, GLOBAL.math.min(100, val))
+        player.components.scav_levels.endurance_steps = 0
+        player.components.scav_levels:SyncToNetVars()
+        player.components.scav_levels:ApplyBuffs()
+        print("[SCAV Debug] Set endurance level to: " .. tostring(val))
+    end
+end
+
+-- Hook playeractionpicker to allow unarmed work actions (left-click for chop/mine, right-click for dig)
+AddClassPostConstruct("components/playeractionpicker", function(self)
+    local old_GetLeftClickActions = self.GetLeftClickActions
+    self.GetLeftClickActions = function(self, position, target, ...)
+        local actions = old_GetLeftClickActions(self, position, target, ...)
+        if self.inst:HasTag("scav_unarmed_worker") then
+            local equipitem = self.inst.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+            if equipitem == nil and target ~= nil and target ~= self.inst then
+                -- Check if target is workable
+                if target:HasTag("CHOP_workable") or target:HasTag("MINE_workable") then
+                    local work_act = target:HasTag("CHOP_workable") and ACTIONS.CHOP or ACTIONS.MINE
+                    actions = actions or {}
+                    -- Check if it's already in the action list
+                    local has_act = false
+                    for _, act in ipairs(actions) do
+                        if act.action == work_act then
+                            has_act = true
+                            break
+                        end
+                    end
+                    if not has_act then
+                        table.insert(actions, 1, BufferedAction(self.inst, target, work_act))
+                    end
+                end
+            end
+        end
+        return actions
+    end
+
+    local old_GetRightClickActions = self.GetRightClickActions
+    self.GetRightClickActions = function(self, position, target, ...)
+        local actions = old_GetRightClickActions(self, position, target, ...)
+        if self.inst:HasTag("scav_unarmed_worker") then
+            local equipitem = self.inst.replica.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+            if equipitem == nil and target ~= nil and target ~= self.inst then
+                -- Check if target is workable
+                if target:HasTag("DIG_workable") then
+                    local work_act = ACTIONS.DIG
+                    actions = actions or {}
+                    local has_act = false
+                    for _, act in ipairs(actions) do
+                        if act.action == work_act then
+                            has_act = true
+                            break
+                        end
+                    end
+                    if not has_act then
+                        table.insert(actions, 1, BufferedAction(self.inst, target, work_act))
+                    end
+                end
+            end
+        end
+        return actions
+    end
+end)

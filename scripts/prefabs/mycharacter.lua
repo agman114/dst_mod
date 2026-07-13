@@ -55,6 +55,14 @@ local function common_postinit(inst)
     inst.scav_fatigue = net_float(inst.GUID, "scav_fatigue")
     inst.scav_sleeping = net_bool(inst.GUID, "scav_sleeping")
 
+    inst.scav_level_strength = net_byte(inst.GUID, "scav_level_strength")
+    inst.scav_level_intellect = net_byte(inst.GUID, "scav_level_intellect")
+    inst.scav_level_endurance = net_byte(inst.GUID, "scav_level_endurance")
+
+    inst.scav_level_strength:set(1)
+    inst.scav_level_intellect:set(1)
+    inst.scav_level_endurance:set(1)
+
     -- Prevent shadow monsters from aggroing (remove sanity_creatures tag immediately)
     inst:RemoveTag("sanity_creatures")
     inst:ListenForEvent("tagadded", function(inst, data)
@@ -136,6 +144,15 @@ local function master_postinit(inst)
 
     -- Attach the custom limb health tracker component
     inst:AddComponent("scav_health")
+    inst:AddComponent("scav_levels")
+
+    -- Allow unarmed chopping, mining, and digging
+    local _G = getfenv(0)
+    inst:AddComponent("worker")
+    inst.components.worker:SetAction(_G.ACTIONS.CHOP, 1)
+    inst.components.worker:SetAction(_G.ACTIONS.MINE, 1)
+    inst.components.worker:SetAction(_G.ACTIONS.DIG, 1)
+    inst:AddComponent("workmultiplier")
 
     -- 1. Block all headwear (Hats)
     local old_CanEquip = inst.components.inventory.CanEquip
