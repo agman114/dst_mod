@@ -112,6 +112,8 @@ function ScavLevels:SyncToNetVars()
     if inst.scav_level_strength then inst.scav_level_strength:set(self.strength_level or 1) end
     if inst.scav_level_intellect then inst.scav_level_intellect:set(self.intellect_level or 1) end
     if inst.scav_level_endurance then inst.scav_level_endurance:set(self.endurance_level or 1) end
+    if inst.scav_xp_strength then inst.scav_xp_strength:set(self.strength_kills or 0) end
+    if inst.scav_xp_endurance then inst.scav_xp_endurance:set(self.endurance_steps or 0) end
 end
 
 function ScavLevels:ApplyBuffs()

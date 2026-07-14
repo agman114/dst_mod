@@ -99,6 +99,10 @@ Assets = {
     Asset("IMAGE", "images/scav_fatigue_icon.tex"),
     Asset("ATLAS", "images/scav_head_blur.xml"),
     Asset("IMAGE", "images/scav_head_blur.tex"),
+    Asset("ATLAS", "images/scav_levels_bg.xml"),
+    Asset("IMAGE", "images/scav_levels_bg.tex"),
+    Asset("ATLAS", "images/scav_levels_bar.xml"),
+    Asset("IMAGE", "images/scav_levels_bar.tex"),
 }
 
 -- Prefab files to load
