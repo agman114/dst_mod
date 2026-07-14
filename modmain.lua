@@ -103,6 +103,10 @@ Assets = {
     Asset("IMAGE", "images/scav_levels_bg.tex"),
     Asset("ATLAS", "images/scav_levels_bar.xml"),
     Asset("IMAGE", "images/scav_levels_bar.tex"),
+    Asset("ATLAS", "images/scav_stats_bg.xml"),
+    Asset("IMAGE", "images/scav_stats_bg.tex"),
+    Asset("ATLAS", "images/scav_limb_bg.xml"),
+    Asset("IMAGE", "images/scav_limb_bg.tex"),
 }
 
 -- Prefab files to load

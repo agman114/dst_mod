@@ -271,6 +271,11 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.levels_display = self.root:AddChild(ScavLevelsDisplay(self.owner))
     self.levels_display:SetPosition(440, 0)
 
+    -- Stats display on the left side of the medical screen
+    local ScavStatsDisplay = require("widgets/scav_stats_display")
+    self.stats_display = self.root:AddChild(ScavStatsDisplay(self.owner))
+    self.stats_display:SetPosition(-440, 0)
+
     self:UpdateLimbHealth()
     self:StartUpdating()
 end)
@@ -362,6 +367,10 @@ end
 
 function ScavMedicalScreen:OnLimbClicked(limb_name)
     if self.wrapping_active or self.bone_reset_active then return end
+
+    if self.stats_display then
+        self.stats_display:UpdateSelectedLimb(limb_name)
+    end
 
     local inst = self.owner
     self.item = nil
