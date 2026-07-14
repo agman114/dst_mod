@@ -29,7 +29,7 @@ local ScavLevelsDisplay = Class(Widget, function(self, owner)
 
     -- Level number text
     self.str_level = self:AddChild(Text(NUMBERFONT, 24))
-    self.str_level:SetPosition(-186.5, 21.0)
+    self.str_level:SetPosition(-186.5, 97.0)
     self.str_level:SetColour(green_color[1], green_color[2], green_color[3], green_color[4])
 
     -- Stats numbers text (start_xp | current_xp | end_xp)
@@ -48,7 +48,7 @@ local ScavLevelsDisplay = Class(Widget, function(self, owner)
 
     -- Level number text
     self.res_level = self:AddChild(Text(NUMBERFONT, 24))
-    self.res_level:SetPosition(-186.5, -54.0)
+    self.res_level:SetPosition(-186.5, 21.0)
     self.res_level:SetColour(green_color[1], green_color[2], green_color[3], green_color[4])
 
     -- Stats numbers text
@@ -67,7 +67,7 @@ local ScavLevelsDisplay = Class(Widget, function(self, owner)
 
     -- Level number text
     self.int_level = self:AddChild(Text(NUMBERFONT, 24))
-    self.int_level:SetPosition(-186.5, -129.0)
+    self.int_level:SetPosition(-186.5, -54.0)
     self.int_level:SetColour(green_color[1], green_color[2], green_color[3], green_color[4])
 
     -- Stats numbers text

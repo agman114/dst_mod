@@ -266,6 +266,11 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
 
     self.was_clicked = nil
 
+    -- Levels display on the right side of the medical screen
+    local ScavLevelsDisplay = require("widgets/scav_levels_display")
+    self.levels_display = self.root:AddChild(ScavLevelsDisplay(self.owner))
+    self.levels_display:SetPosition(440, 0)
+
     self:UpdateLimbHealth()
     self:StartUpdating()
 end)

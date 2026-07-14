@@ -476,12 +476,6 @@ end
 -- Hook controls widget to add levels display and head stun blur overlay
 AddClassPostConstruct("widgets/controls", function(self)
     if self.owner and self.owner:HasTag("scav_unarmed_worker") then
-        local ScavLevelsDisplay = require("widgets/scav_levels_display")
-        self.scav_levels_display = self:AddChild(ScavLevelsDisplay(self.owner))
-        self.scav_levels_display:SetHAnchor(GLOBAL.ANCHOR_MIDDLE)
-        self.scav_levels_display:SetVAnchor(GLOBAL.ANCHOR_BOTTOM)
-        self.scav_levels_display:SetPosition(0, 110)
-
         local ScavHeadBlurOverlay = require("widgets/scav_head_blur_overlay")
         self.scav_head_blur_overlay = self:AddChild(ScavHeadBlurOverlay(self.owner))
     end
