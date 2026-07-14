@@ -16,6 +16,10 @@ local ScavStatsDisplay = Class(Widget, function(self, owner)
     self.stats_panel = self:AddChild(Widget("stats_panel"))
     self.stats_panel:SetPosition(0, 160)
 
+    self.monitor_bg = self.stats_panel:AddChild(Image("images/scav_limb_bg.xml", "scav_limb_bg.tex"))
+    self.monitor_bg:SetPosition(0, 0)
+    self.monitor_bg:SetSize(486, 513)
+
     self.bg = self.stats_panel:AddChild(Image("images/scav_stats_bg.xml", "scav_stats_bg.tex"))
     self.bg:SetPosition(0, 0)
     self.bg:SetSize(486, 513)
