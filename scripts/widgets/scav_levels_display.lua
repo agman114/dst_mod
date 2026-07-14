@@ -11,10 +11,6 @@ local ScavLevelsDisplay = Class(Widget, function(self, owner)
     self:SetScale(0.7, 0.7)
 
     -- Stats Box Background (463x232)
-    self.monitor_bg = self:AddChild(Image("images/scav_limb_bg.xml", "scav_limb_bg.tex"))
-    self.monitor_bg:SetPosition(0, 0)
-    self.monitor_bg:SetSize(463, 232)
-
     self.bg = self:AddChild(Image("images/scav_levels_bg.xml", "scav_levels_bg.tex"))
     self.bg:SetPosition(0, 0)
     self.bg:SetSize(463, 232)
