@@ -123,6 +123,7 @@ function ScavHealth:SyncToNetVars()
     if inst.scav_broken_right_leg then inst.scav_broken_right_leg:set(self.limbs.right_leg.broken) end
     if inst.scav_broken_torso then inst.scav_broken_torso:set(self.limbs.torso.broken) end
 
+    if inst.scav_bleeding_head then inst.scav_bleeding_head:set(self.limbs.head.bleeding) end
     if inst.scav_bleeding_torso then inst.scav_bleeding_torso:set(self.limbs.torso.bleeding) end
     if inst.scav_bleeding_left_arm then inst.scav_bleeding_left_arm:set(self.limbs.left_arm.bleeding) end
     if inst.scav_bleeding_right_arm then inst.scav_bleeding_right_arm:set(self.limbs.right_arm.bleeding) end
@@ -185,6 +186,7 @@ function ScavHealth:DistributeDamage(amount)
             limb.bleeding = true
         elseif primary_limb == "head" then
             -- Head injury
+            limb.bleeding = true
             if limb.health < 30 then
                 self.inst:AddTag("brain_damaged")
             end

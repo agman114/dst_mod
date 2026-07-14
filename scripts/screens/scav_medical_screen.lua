@@ -160,18 +160,18 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
         end
 
         if limb_name ~= "head" then
-            local bleed_icon = self.panel:AddChild(Image("images/scav_blood_drop.xml", "scav_blood_drop.tex"))
-            bleed_icon:SetPosition(bleed_x, bleed_y)
-            bleed_icon:SetSize(25, 38)
-            bleed_icon:Hide()
-            self.limb_bleed_icons[limb_name] = bleed_icon
-
             local bone_icon = self.panel:AddChild(Image("images/scav_bone_icon.xml", "scav_bone_icon.tex"))
             bone_icon:SetPosition(bone_x, bone_y)
             bone_icon:SetSize(25, 38)
             bone_icon:Hide()
             self.limb_bone_icons[limb_name] = bone_icon
         end
+
+        local bleed_icon = self.panel:AddChild(Image("images/scav_blood_drop.xml", "scav_blood_drop.tex"))
+        bleed_icon:SetPosition(bleed_x, bleed_y)
+        bleed_icon:SetSize(25, 38)
+        bleed_icon:Hide()
+        self.limb_bleed_icons[limb_name] = bleed_icon
     end
 
     -- Circular wrapping variables & assets
@@ -360,7 +360,8 @@ function ScavMedicalScreen:OnLimbClicked(limb_name)
 
     -- 1. Determine the appropriate item type based on limb condition
     local is_bleeding = false
-    if limb_name == "torso" and inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() then is_bleeding = true
+    if limb_name == "head" and inst.scav_bleeding_head and inst.scav_bleeding_head:value() then is_bleeding = true
+    elseif limb_name == "torso" and inst.scav_bleeding_torso and inst.scav_bleeding_torso:value() then is_bleeding = true
     elseif limb_name == "left_arm" and inst.scav_bleeding_left_arm and inst.scav_bleeding_left_arm:value() then is_bleeding = true
     elseif limb_name == "right_arm" and inst.scav_bleeding_right_arm and inst.scav_bleeding_right_arm:value() then is_bleeding = true
     elseif limb_name == "left_leg" and inst.scav_bleeding_left_leg and inst.scav_bleeding_left_leg:value() then is_bleeding = true

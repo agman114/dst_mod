@@ -43,6 +43,7 @@ local function common_postinit(inst)
     inst.scav_broken_right_leg = net_bool(inst.GUID, "scav_broken_right_leg")
     inst.scav_broken_torso = net_bool(inst.GUID, "scav_broken_torso")
 
+    inst.scav_bleeding_head = net_bool(inst.GUID, "scav_bleeding_head")
     inst.scav_bleeding_torso = net_bool(inst.GUID, "scav_bleeding_torso")
     inst.scav_bleeding_left_arm = net_bool(inst.GUID, "scav_bleeding_left_arm")
     inst.scav_bleeding_right_arm = net_bool(inst.GUID, "scav_bleeding_right_arm")
