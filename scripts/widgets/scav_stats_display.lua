@@ -160,25 +160,68 @@ function ScavStatsDisplay:UpdateSelectedLimb(limb_name)
     end
 end
 
+local function GetLimbHealth(inst, name)
+    local var = inst["scav_health_" .. name]
+    return var and var:value() or 100
+end
+
+local function GetLimbBroken(inst, name)
+    if name == "head" then return false end
+    local var = inst["scav_broken_" .. name]
+    return var and var:value() or false
+end
+
+local function GetLimbBleeding(inst, name)
+    local var = inst["scav_bleeding_" .. name]
+    return var and var:value() or false
+end
+
+local function GetPain(inst)
+    local pain = 0
+    local limbs = { "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg" }
+    
+    -- Broken limbs add 20 pain each
+    for _, l in ipairs(limbs) do
+        if GetLimbBroken(inst, l) then
+            pain = pain + 20
+        end
+    end
+    
+    -- Bleeding limbs add 10 pain each
+    for _, l in ipairs(limbs) do
+        if GetLimbBleeding(inst, l) then
+            pain = pain + 10
+        end
+    end
+    
+    -- Low health adds pain
+    local total_missing = 0
+    for _, l in ipairs(limbs) do
+        total_missing = total_missing + (100 - GetLimbHealth(inst, l))
+    end
+    pain = pain + math.floor(total_missing * 0.1)
+    
+    return math.max(0, math.min(100, pain))
+end
+
 function ScavStatsDisplay:OnUpdate(dt)
     local inst = self.owner
     if not inst then return end
 
     -- 1. Update Main Stats
-    local sanity_pct = inst.components.sanity and inst.components.sanity:GetPercent() or 1
+    local sanity_pct = inst.replica.sanity and inst.replica.sanity:GetPercent() or 1
     self.sanity_bar:SetSize(math.max(1, 210 * sanity_pct), 20)
 
-    local pain_val = inst.components.scav_health and inst.components.scav_health:GetPain() or 0
+    local pain_val = GetPain(inst)
     local consc_val = math.max(0, 100 - pain_val)
     self.consc_text:SetString(string.format("  %d%% CONSC", consc_val))
     self.pain_text:SetString(string.format("  %d%% PAIN", pain_val))
 
     local num_bleeds = 0
-    if inst.components.scav_health and inst.components.scav_health.limbs then
-        for _, limb in pairs(inst.components.scav_health.limbs) do
-            if limb.bleeding then
-                num_bleeds = num_bleeds + 1
-            end
+    local limbs_list = { "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg" }
+    for _, l in ipairs(limbs_list) do
+        if GetLimbBleeding(inst, l) then
+            num_bleeds = num_bleeds + 1
         end
     end
     local blood_vol = 5.00 - (num_bleeds * 0.25)
@@ -187,13 +230,13 @@ function ScavStatsDisplay:OnUpdate(dt)
     self.o2_text:SetString("O2 99%")
     self.inf_text:SetString("159%")
 
-    local temp = inst.components.temperature and inst.components.temperature:GetCurrent() or 37
+    local temp = inst.GetTemperature and inst:GetTemperature() or 36.9
     self.temp_text:SetString(string.format("%.1f c", temp))
 
     local pulse = 60 + math.floor(pain_val * 0.5)
     self.pulse_text:SetString(string.format("%d bpm", pulse))
 
-    local hunger_pct = inst.components.hunger and inst.components.hunger:GetPercent() or 1
+    local hunger_pct = inst.replica.hunger and inst.replica.hunger:GetPercent() or 1
     self.stomach_text:SetString(string.format("%d%%", math.floor(hunger_pct * 100)))
 
     local fatigue_val = inst.scav_fatigue and inst.scav_fatigue:value() or 0
@@ -210,19 +253,12 @@ function ScavStatsDisplay:OnUpdate(dt)
     }
     self.limb_title:SetString(limb_names_display[self.selected_limb] or "TORSO")
 
-    local limb_health = 100
-    local is_broken = false
-    if inst.components.scav_health and inst.components.scav_health.limbs then
-        local limb = inst.components.scav_health.limbs[self.selected_limb]
-        if limb then
-            limb_health = limb.health or 100
-            is_broken = limb.broken or false
-        end
-    end
+    local limb_health = GetLimbHealth(inst, self.selected_limb)
+    local is_broken = GetLimbBroken(inst, self.selected_limb)
 
     -- Skin health vs muscle health simulation based on limb health
-    local skin_pct = math.clamp(limb_health / 100, 0, 1)
-    local muscl_pct = math.clamp(limb_health / 100, 0, 1)
+    local skin_pct = math.max(0, math.min(1, limb_health / 100))
+    local muscl_pct = math.max(0, math.min(1, limb_health / 100))
     self.skin_bar:SetSize(math.max(1, 65 * skin_pct), 12)
     self.muscl_bar:SetSize(math.max(1, 65 * muscl_pct), 12)
 
