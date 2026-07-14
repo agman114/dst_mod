@@ -16,6 +16,10 @@ local ScavHealth = Class(function(self, inst)
     self.sleeping = false
     self.sanity_slow_walk = false
     self.sanity_scratch_active = false
+    self.head_injury_timer = 0
+    self.heavy_bleeding = false
+    self.bleeding_timer = 0
+    self.heavy_bleed_sleep_timer = 0
 
     -- Hook actions to add fatigue (digging, mining, chopping adds 0.2 fatigue)
     self.inst:ListenForEvent("actioncomplete", function(inst, data)
@@ -130,17 +134,49 @@ function ScavHealth:SyncToNetVars()
     if inst.scav_sanity_slow_walk then inst.scav_sanity_slow_walk:set(self.sanity_slow_walk or false) end
     if inst.scav_fatigue then inst.scav_fatigue:set(self.fatigue or 0) end
     if inst.scav_sleeping then inst.scav_sleeping:set(self.sleeping or false) end
+    if inst.scav_head_injured then inst.scav_head_injured:set((self.head_injury_timer or 0) > 0) end
+    if inst.scav_heavy_bleeding then inst.scav_heavy_bleeding:set(self.heavy_bleeding or false) end
 end
 
 -- Distribute incoming damage to limbs randomly
 function ScavHealth:DistributeDamage(amount)
     local limb_names = { "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg" }
     
-    -- Pick a random limb to take the brunt of the hit
-    local primary_limb = limb_names[math.random(#limb_names)]
-    local limb = self.limbs[primary_limb]
+    -- Guarantee head hit if damage >= 50
+    local primary_limb = nil
+    if amount >= 50 then
+        primary_limb = "head"
+        self.head_injury_timer = 30
+        if self.inst.components.talker then
+            self.inst.components.talker:Say("Ааах! Удар прямо в голову! В глазах темнеет...")
+        end
+    else
+        primary_limb = limb_names[math.random(#limb_names)]
+    end
 
+    local limb = self.limbs[primary_limb]
     limb.health = math.max(0, limb.health - amount)
+
+    -- Head hit naturally also sets/resets the head injury timer
+    if primary_limb == "head" then
+        self.head_injury_timer = 30
+    end
+
+    -- Check if already bleeding and taking a large hit (causing heavy bleeding)
+    local is_bleeding_before = false
+    for name, l in pairs(self.limbs) do
+        if l.bleeding then
+            is_bleeding_before = true
+            break
+        end
+    end
+
+    if is_bleeding_before and amount >= 25 then
+        self.heavy_bleeding = true
+        if self.inst.components.talker then
+            self.inst.components.talker:Say("О нет! Раны раскрылись еще сильнее, у меня началось тяжелое кровотечение!")
+        end
+    end
 
     -- High damage can cause fractures or bleeding
     if amount >= 15 then
@@ -272,13 +308,60 @@ function ScavHealth:OnUpdate(dt)
 
     local inst = self.inst
 
+    -- Decrement head injury timer
+    if self.head_injury_timer and self.head_injury_timer > 0 then
+        self.head_injury_timer = math.max(0, self.head_injury_timer - 1.0)
+    end
+
+    local is_bleeding = false
     local total_bleeding_damage = 0
     for name, limb in pairs(self.limbs) do
         if limb.bleeding then
+            is_bleeding = true
             total_bleeding_damage = total_bleeding_damage + 1 -- 1 dmg per bleeding limb
             
             -- Bleeding slowly lowers limb health too
             limb.health = math.max(0, limb.health - 0.5)
+        end
+    end
+
+    if is_bleeding then
+        self.bleeding_timer = (self.bleeding_timer or 0) + 1.0
+        if self.bleeding_timer >= 120.0 then
+            if not self.heavy_bleeding then
+                self.heavy_bleeding = true
+                if inst.components.talker then
+                    inst.components.talker:Say("О нет! Я слишком долго истекаю кровью, у меня началось тяжелое кровотечение!")
+                end
+            end
+        end
+    else
+        self.bleeding_timer = 0
+        self.heavy_bleeding = false
+        self.heavy_bleed_sleep_timer = 0
+    end
+
+    if self.heavy_bleeding then
+        total_bleeding_damage = total_bleeding_damage + 2 -- increase damage per second by 2
+
+        -- Sleep interval: every 10 seconds
+        self.heavy_bleed_sleep_timer = (self.heavy_bleed_sleep_timer or 0) + 1.0
+        if self.heavy_bleed_sleep_timer >= 10.0 then
+            self.heavy_bleed_sleep_timer = 0
+            if not self.sleeping then
+                self:StartSleeping(true)
+                if inst.components.talker then
+                    inst.components.talker:Say("Ооох... Голова кружится от потери крови...")
+                end
+                local duration = math.random(2, 3)
+                inst:DoTaskInTime(duration, function()
+                    if self.sleeping then
+                        self.sleeping = false
+                        if inst.sg then inst.sg:GoToState("wakeup") end
+                        if inst.components.hunger then inst.components.hunger.burnrate = 1.0 end
+                    end
+                end)
+            end
         end
     end
 

@@ -54,6 +54,8 @@ local function common_postinit(inst)
     inst.scav_sanity_slow_walk = net_bool(inst.GUID, "scav_sanity_slow_walk")
     inst.scav_fatigue = net_float(inst.GUID, "scav_fatigue")
     inst.scav_sleeping = net_bool(inst.GUID, "scav_sleeping")
+    inst.scav_head_injured = net_bool(inst.GUID, "scav_head_injured")
+    inst.scav_heavy_bleeding = net_bool(inst.GUID, "scav_heavy_bleeding")
 
     inst.scav_level_strength = net_byte(inst.GUID, "scav_level_strength")
     inst.scav_level_intellect = net_byte(inst.GUID, "scav_level_intellect")

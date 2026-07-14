@@ -97,6 +97,8 @@ Assets = {
     Asset("IMAGE", "images/scav_arm_normal.tex"),
     Asset("ATLAS", "images/scav_fatigue_icon.xml"),
     Asset("IMAGE", "images/scav_fatigue_icon.tex"),
+    Asset("ATLAS", "images/scav_head_blur.xml"),
+    Asset("IMAGE", "images/scav_head_blur.tex"),
 }
 
 -- Prefab files to load
@@ -467,7 +469,7 @@ if Builder then
     end
 end
 
--- Hook controls widget to add levels display at bottom-center of the screen
+-- Hook controls widget to add levels display and head stun blur overlay
 AddClassPostConstruct("widgets/controls", function(self)
     if self.owner and self.owner:HasTag("scav_unarmed_worker") then
         local ScavLevelsDisplay = require("widgets/scav_levels_display")
@@ -475,6 +477,9 @@ AddClassPostConstruct("widgets/controls", function(self)
         self.scav_levels_display:SetHAnchor(GLOBAL.ANCHOR_MIDDLE)
         self.scav_levels_display:SetVAnchor(GLOBAL.ANCHOR_BOTTOM)
         self.scav_levels_display:SetPosition(0, 110)
+
+        local ScavHeadBlurOverlay = require("widgets/scav_head_blur_overlay")
+        self.scav_head_blur_overlay = self:AddChild(ScavHeadBlurOverlay(self.owner))
     end
 end)
 

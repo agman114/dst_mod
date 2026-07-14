@@ -276,13 +276,17 @@ function ScavMedicalScreen:UpdateLimbHealth()
         end
         local is_broken = inst["scav_broken_" .. name] and inst["scav_broken_" .. name]:value() or false
         local is_bleeding = inst["scav_bleeding_" .. name] and inst["scav_bleeding_" .. name]:value() or false
+        local is_heavy = inst.scav_heavy_bleeding and inst.scav_heavy_bleeding:value() or false
         
         if is_broken and is_bleeding then
-            return "Перелом+Кров.", { 1, 0.3, 0.1, 1 }
+            local prefix = is_heavy and "Тяж.Кров." or "Кров."
+            return "Перелом+" .. prefix, { 1, 0.1, 0.05, 1 }
         elseif is_broken then
             return "Перелом", { 1, 0.5, 0, 1 }
         elseif is_bleeding then
-            return "Кровотечение", { 1, 0.2, 0.2, 1 }
+            local text = is_heavy and "Тяж. Кровотечение" or "Кровотечение"
+            local colour = is_heavy and { 0.7, 0.05, 0.05, 1 } or { 1, 0.2, 0.2, 1 }
+            return text, colour
         else
             return "ОК", { 1, 1, 1, 1 }
         end
@@ -307,9 +311,19 @@ function ScavMedicalScreen:UpdateLimbHealth()
 
         local is_broken = name ~= "head" and inst["scav_broken_" .. name] and inst["scav_broken_" .. name]:value() or false
         local is_bleeding = name ~= "head" and inst["scav_bleeding_" .. name] and inst["scav_bleeding_" .. name]:value() or false
+        local is_heavy = inst.scav_heavy_bleeding and inst.scav_heavy_bleeding:value() or false
 
         if self.limb_bleed_icons[name] then
-            if is_bleeding then self.limb_bleed_icons[name]:Show() else self.limb_bleed_icons[name]:Hide() end
+            if is_bleeding then
+                self.limb_bleed_icons[name]:Show()
+                if is_heavy then
+                    self.limb_bleed_icons[name]:SetTint(0.6, 0.05, 0.05, 1) -- Deeper, darker red for heavy bleeding
+                else
+                    self.limb_bleed_icons[name]:SetTint(1, 1, 1, 1) -- Standard color
+                end
+            else
+                self.limb_bleed_icons[name]:Hide()
+            end
         end
         if self.limb_bone_icons[name] then
             if is_broken then self.limb_bone_icons[name]:Show() else self.limb_bone_icons[name]:Hide() end

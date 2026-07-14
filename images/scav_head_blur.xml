@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<Atlas>
+	<Texture filename="scav_head_blur.tex" />
+	<Elements>
+		<Element name="scav_head_blur.tex" u1="0.000488281" u2="0.999512" v1="0.000488281" v2="0.999512" />
+	</Elements>
+</Atlas>
