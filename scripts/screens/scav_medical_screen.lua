@@ -108,6 +108,7 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
     self.limb_bleed_icons = {}
     self.limb_bone_icons = {}
 
+    -- 1. Create limb images first so they render under texts/icons
     for limb_name, data in pairs(self.limb_layout) do
         local atlas, tex = GetUIAsset(data.asset, data.fallback_atlas, data.fallback_tex)
         local img = self.panel:AddChild(Image(atlas, tex))
@@ -129,12 +130,15 @@ local ScavMedicalScreen = Class(Screen, function(self, owner, item)
                 return true
             end
         end
+        
+        self.limb_images[limb_name] = img
+    end
 
+    -- 2. Create texts and icons second so they are drawn on top
+    for limb_name, data in pairs(self.limb_layout) do
         -- Text display below each limb showing health & status
         local btn_text = self.panel:AddChild(Text(NUMBERFONT, 18))
         btn_text:SetPosition(data.x, data.y - data.h/2 - 12)
-        
-        self.limb_images[limb_name] = img
         self.limb_texts[limb_name] = btn_text
 
         -- Position the icons in a smart way based on limb layout

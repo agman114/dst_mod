@@ -143,7 +143,7 @@ end
 function ScavHealth:DistributeDamage(amount)
     local limb_names = { "head", "torso", "left_arm", "right_arm", "left_leg", "right_leg" }
     
-    -- Guarantee head hit if damage >= 50
+    -- Pick a primary limb
     local primary_limb = nil
     if amount >= 50 then
         primary_limb = "head"
@@ -155,10 +155,63 @@ function ScavHealth:DistributeDamage(amount)
         primary_limb = limb_names[math.random(#limb_names)]
     end
 
-    local limb = self.limbs[primary_limb]
-    limb.health = math.max(0, limb.health - amount)
+    local function round(v) return math.floor(v + 0.5) end
 
-    -- Head hit naturally also sets/resets the head injury timer
+    -- If damage is high, split it so other limbs take some damage too
+    if amount >= 30 then
+        local primary_damage = round(amount * 0.6)
+        local remaining_damage = amount - primary_damage
+        
+        -- Apply primary damage to primary limb
+        local primary_limb_obj = self.limbs[primary_limb]
+        primary_limb_obj.health = math.max(0, primary_limb_obj.health - primary_damage)
+        
+        -- Find distinct other limbs to distribute the rest
+        local other_limbs = {}
+        for _, name in ipairs(limb_names) do
+            if name ~= primary_limb then
+                table.insert(other_limbs, name)
+            end
+        end
+        
+        -- Pick 2 random other limbs
+        for i = 1, 2 do
+            if #other_limbs > 0 then
+                local idx = math.random(#other_limbs)
+                local target_limb_name = table.remove(other_limbs, idx)
+                local target_limb = self.limbs[target_limb_name]
+                
+                local split_dmg = round(remaining_damage / 2)
+                if i == 2 then
+                    split_dmg = remaining_damage - round(remaining_damage / 2)
+                end
+                
+                if split_dmg > 0 then
+                    target_limb.health = math.max(0, target_limb.health - split_dmg)
+                    
+                    -- If split damage is high (>= 15), it can cause fractures or bleeding on that limb too!
+                    if split_dmg >= 15 then
+                        if target_limb_name == "torso" then
+                            target_limb.broken = true
+                            target_limb.bleeding = true
+                        elseif target_limb_name == "head" then
+                            target_limb.bleeding = true
+                        elseif target_limb_name == "left_arm" or target_limb_name == "right_arm" or target_limb_name == "left_leg" or target_limb_name == "right_leg" then
+                            target_limb.broken = true
+                            target_limb.bleeding = math.random() > 0.5
+                        end
+                    end
+                end
+            end
+        end
+    else
+        -- Normal single limb damage
+        local limb = self.limbs[primary_limb]
+        limb.health = math.max(0, limb.health - amount)
+    end
+
+    -- Apply primary limb effects (bleeding, fractures) based on total damage amount
+    local limb = self.limbs[primary_limb]
     if primary_limb == "head" then
         self.head_injury_timer = 30
     end
@@ -179,13 +232,12 @@ function ScavHealth:DistributeDamage(amount)
         end
     end
 
-    -- High damage can cause fractures or bleeding
+    -- High damage triggers injuries on the primary limb
     if amount >= 15 then
         if primary_limb == "torso" then
             limb.broken = true
             limb.bleeding = true
         elseif primary_limb == "head" then
-            -- Head injury
             limb.bleeding = true
             if limb.health < 30 then
                 self.inst:AddTag("brain_damaged")
