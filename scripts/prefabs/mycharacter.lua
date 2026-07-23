@@ -12,10 +12,19 @@ local start_inv = {
 
 -- This is called both on client and server
 local function common_postinit(inst)
-    -- Ensure bank is wilson and build is mycharacter
+    -- Ensure bank is wilson and build is wilson, override with mycharacter symbols
     if inst.AnimState then
         inst.AnimState:SetBank("wilson")
-        inst.AnimState:SetBuild("mycharacter")
+        inst.AnimState:SetBuild("wilson")
+        
+        inst.AnimState:OverrideSymbol("headbase", "mycharacter", "headbase")
+        inst.AnimState:OverrideSymbol("face", "mycharacter", "face")
+        inst.AnimState:OverrideSymbol("torso", "mycharacter", "torso")
+        inst.AnimState:OverrideSymbol("arm_lower", "mycharacter", "arm_lower")
+        inst.AnimState:OverrideSymbol("hand", "mycharacter", "hand")
+        inst.AnimState:OverrideSymbol("leg", "mycharacter", "leg")
+        inst.AnimState:OverrideSymbol("foot", "mycharacter", "foot")
+        inst.AnimState:OverrideSymbol("cheeks", "mycharacter", "cheeks")
     end
 
     -- Minimap icon (using Wilson as placeholder)
