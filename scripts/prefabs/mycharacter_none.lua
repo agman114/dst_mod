@@ -8,7 +8,7 @@ local skins = {
 }
 
 return CreatePrefabSkin("mycharacter_none", {
-    base_build = "mycharacter",
+    base_build = "wilson",
     skins = skins,
     assets = assets,
 })
