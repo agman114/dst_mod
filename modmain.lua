@@ -41,7 +41,6 @@ end
 
 -- Assets to load
 Assets = {
-    Asset("ANIM", "anim/mycharacter.zip"),
     -- Custom item assets
     -- Asset("ANIM", "anim/scav_items.zip"),
     
