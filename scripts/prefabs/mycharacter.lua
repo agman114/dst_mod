@@ -13,6 +13,12 @@ local start_inv = {
 
 -- This is called both on client and server
 local function common_postinit(inst)
+    -- Ensure build is initialized so character model is visible
+    if inst.AnimState then
+        inst.AnimState:SetBank("wilson")
+        inst.AnimState:SetBuild("wilson")
+    end
+
     -- Minimap icon (using Wilson as placeholder)
     inst.MiniMapEntity:SetIcon("wilson.png")
 
@@ -21,6 +27,10 @@ local function common_postinit(inst)
     
     -- Tag to identify player for standard healing block hook
     inst:AddTag("scav_no_standard_heal")
+
+    -- Tags for recipe visibility and crafting
+    inst:AddTag("mycharacter_builder")
+    inst:AddTag("mycharacter")
 
     -- Sync variables (net_vars) for limb health and debuffs
     inst.scav_limb_head = net_byte(inst.GUID, "scav_limb_head")
@@ -57,6 +67,8 @@ local function common_postinit(inst)
     inst.scav_sleeping = net_bool(inst.GUID, "scav_sleeping")
     inst.scav_head_injured = net_bool(inst.GUID, "scav_head_injured")
     inst.scav_heavy_bleeding = net_bool(inst.GUID, "scav_heavy_bleeding")
+    inst.scav_heal_cooldown = net_float(inst.GUID, "scav_heal_cooldown")
+    inst.scav_tracked_prefab_net = net_string(inst.GUID, "scav_tracked_prefab_net")
 
     inst.scav_level_strength = net_byte(inst.GUID, "scav_level_strength")
     inst.scav_level_intellect = net_byte(inst.GUID, "scav_level_intellect")
@@ -150,6 +162,82 @@ local function master_postinit(inst)
     -- Attach the custom limb health tracker component
     inst:AddComponent("scav_health")
     inst:AddComponent("scav_levels")
+
+    -- Temperature resistance (strong cold resistance, weak heat resistance)
+    if inst.components.temperature then
+        inst.components.temperature.inherentinsulation = 180
+        inst.components.temperature.inherentsummerinsulation = -60
+    end
+
+    -- Cooldown decrement task for active healing ability
+    inst:DoPeriodicTask(1, function(inst)
+        if inst.scav_heal_cooldown then
+            local cd = inst.scav_heal_cooldown:value()
+            if cd > 0 then
+                inst.scav_heal_cooldown:set(math.max(0, cd - 1))
+            end
+        end
+    end)
+
+    -- Server-side smell tracking task
+    inst.scav_tracked_prefab = nil
+    inst.scav_smell_active_server = false
+    inst.scav_smell_notified_notfound = false
+
+    inst:DoPeriodicTask(3, function(inst)
+        if inst.scav_tracked_prefab and inst.scav_smell_active_server then
+            local _G = getfenv(0)
+            local x, y, z = inst.Transform:GetWorldPosition()
+            local ents = _G.TheSim:FindEntities(x, y, z, 100)
+            -- print("[SCAV Smell] Found " .. tostring(#ents) .. " entities in radius 100")
+            local nearest = nil
+            local min_dist = 99999
+            
+            local function IsMatch(ent, tracked)
+                if not ent:IsValid() then return false end
+                if tracked == "koalefant" then
+                    return ent.prefab == "koalefant_summer" or ent.prefab == "koalefant_winter"
+                end
+                return ent.prefab == tracked
+            end
+
+            for _, ent in ipairs(ents) do
+                if IsMatch(ent, inst.scav_tracked_prefab) and not ent:HasTag("playerghost") then
+                    local dist = ent:GetDistanceSqToInst(inst)
+                    if dist < min_dist then
+                        min_dist = dist
+                        nearest = ent
+                    end
+                end
+            end
+            
+            if nearest then
+                local p1 = inst:GetPosition()
+                local p2 = nearest:GetPosition()
+                local dir = p2 - p1
+                local dist = dir:Length()
+                local step = 4
+                local num_steps = math.min(15, math.floor(dist / step))
+                
+                for i = 1, num_steps do
+                    inst:DoTaskInTime(i * 0.05, function()
+                        local marker = _G.SpawnPrefab("scav_smell_wisp")
+                        if marker then
+                            local pos = p1 + dir:Normalize() * (i * step)
+                            marker.Transform:SetPosition(pos.x, 0.5, pos.z)
+                        end
+                    end)
+                end
+            else
+                if not inst.scav_smell_notified_notfound then
+                    inst.scav_smell_notified_notfound = true
+                    if inst.components.talker then
+                        inst.components.talker:Say("Я не чувствую этот запах поблизости...")
+                    end
+                end
+            end
+        end
+    end)
 
     -- Allow unarmed chopping, mining, and digging
     local _G = getfenv(0)
