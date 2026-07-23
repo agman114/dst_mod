@@ -12,11 +12,10 @@ local start_inv = {
 
 -- This is called both on client and server
 local function common_postinit(inst)
-    -- Ensure base build is wilson and override build is mycharacter for full visibility
+    -- Ensure bank is wilson and build is mycharacter
     if inst.AnimState then
         inst.AnimState:SetBank("wilson")
-        inst.AnimState:SetBuild("wilson")
-        inst.AnimState:AddOverrideBuild("mycharacter")
+        inst.AnimState:SetBuild("mycharacter")
     end
 
     -- Minimap icon (using Wilson as placeholder)
