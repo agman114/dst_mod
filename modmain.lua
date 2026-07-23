@@ -113,6 +113,7 @@ Assets = {
 -- Prefab files to load
 PrefabFiles = {
     "mycharacter",
+    "mycharacter_none",
     "scav_items",
     "scav_chest",
     "scav_keypad_chest",
