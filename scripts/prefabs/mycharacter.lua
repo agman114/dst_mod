@@ -12,19 +12,15 @@ local start_inv = {
 
 -- This is called both on client and server
 local function common_postinit(inst)
-    -- Ensure bank is wilson and build is wilson, override with mycharacter symbols
+    -- Ensure bank is wilson and build is mycharacter
     if inst.AnimState then
         inst.AnimState:SetBank("wilson")
-        inst.AnimState:SetBuild("wilson")
+        inst.AnimState:SetBuild("mycharacter")
         
-        inst.AnimState:OverrideSymbol("headbase", "mycharacter", "headbase")
-        inst.AnimState:OverrideSymbol("face", "mycharacter", "face")
-        inst.AnimState:OverrideSymbol("torso", "mycharacter", "torso")
-        inst.AnimState:OverrideSymbol("arm_lower", "mycharacter", "arm_lower")
-        inst.AnimState:OverrideSymbol("hand", "mycharacter", "hand")
-        inst.AnimState:OverrideSymbol("leg", "mycharacter", "leg")
-        inst.AnimState:OverrideSymbol("foot", "mycharacter", "foot")
-        inst.AnimState:OverrideSymbol("cheeks", "mycharacter", "cheeks")
+        -- Hide Wilson's hair, hat hair, and beard layers so our cat model is clearly shown
+        inst.AnimState:Hide("hair")
+        inst.AnimState:Hide("hair_hat")
+        inst.AnimState:Hide("beard")
     end
 
     -- Minimap icon (using Wilson as placeholder)
