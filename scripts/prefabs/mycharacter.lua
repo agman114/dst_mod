@@ -1,7 +1,7 @@
 local MakePlayerCharacter = require("prefabs/player_common")
 
 local assets = {
-    Asset("ANIM", "anim/mycharacter.zip"),
+    -- Asset("ANIM", "anim/mycharacter.zip"),
 }
 
 -- Custom starting inventory items
