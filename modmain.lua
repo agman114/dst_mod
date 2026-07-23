@@ -41,6 +41,7 @@ end
 
 -- Assets to load
 Assets = {
+    Asset("ANIM", "anim/mycharacter.zip"),
     -- Custom item assets
     -- Asset("ANIM", "anim/scav_items.zip"),
     
@@ -115,6 +116,7 @@ PrefabFiles = {
     "scav_items",
     "scav_chest",
     "scav_keypad_chest",
+    "scav_smell_wisp",
 }
 
 -- Load speech strings
@@ -256,6 +258,26 @@ AddModRPCHandler("MEGACALLLMOD", "TriggerSleep", function(player)
     end
 end)
 
+AddModRPCHandler("MEGACALLLMOD", "ToggleSmellVision", function(player, active)
+    if player and player:IsValid() then
+        print("[SCAV Smell] ToggleSmellVision RPC received. Active: " .. tostring(active))
+        player.scav_smell_active_server = active
+        if not active then
+            player.scav_tracked_prefab = nil
+            player.scav_tracked_prefab_net:set("")
+        end
+    end
+end)
+
+AddModRPCHandler("MEGACALLLMOD", "StartTrackingPrefab", function(player, prefab)
+    if player and player:IsValid() then
+        print("[SCAV Smell] StartTrackingPrefab RPC received. Prefab: " .. tostring(prefab))
+        player.scav_tracked_prefab = prefab
+        player.scav_tracked_prefab_net:set(prefab)
+        player.scav_smell_notified_notfound = false
+    end
+end)
+
 AddModRPCHandler("MEGACALLLMOD", "LockpickSuccess", function(player, chest)
     if player and player:IsValid() and chest and chest:IsValid() then
         if chest.scav_locked and chest.scav_locked:value() then
@@ -314,6 +336,67 @@ if not TheNet:IsDedicated() then
             elseif active_screen == player.HUD then
                 local ScavMedicalScreen = require("screens/scav_medical_screen")
                 TheFrontEnd:PushScreen(ScavMedicalScreen(player))
+            end
+        end
+    end)
+
+    -- KEY_X: Toggle Smell Vision
+    GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_X, function()
+        local player = GLOBAL.ThePlayer
+        if player and player:IsValid() and player.prefab == "mycharacter" then
+            local TheFrontEnd = GLOBAL.TheFrontEnd
+            local active_screen = TheFrontEnd:GetActiveScreen()
+            if active_screen and (active_screen.name == "ChatInputScreen" or active_screen.name == "ConsoleScreen") then
+                return
+            end
+            
+            player.scav_smell_active = not player.scav_smell_active
+            
+            SendModRPCToServer(GLOBAL.GetModRPC("MEGACALLLMOD", "ToggleSmellVision"), player.scav_smell_active)
+            
+            local controls = player.HUD and player.HUD.controls
+            if controls and controls.scav_smell_vision_overlay then
+                controls.scav_smell_vision_overlay:Toggle(player.scav_smell_active)
+            end
+            
+            if player.components.talker then
+                if player.scav_smell_active then
+                    player.components.talker:Say("Я чувствую их запахи...")
+                else
+                    player.components.talker:Say("Глаза открыты.")
+                end
+            end
+        end
+    end)
+
+    local function IsSmellMenuOpen()
+        local TheFrontEnd = GLOBAL.TheFrontEnd
+        if TheFrontEnd and TheFrontEnd.screen_stack then
+            for _, screen in ipairs(TheFrontEnd.screen_stack) do
+                if screen.name == "ScavSmellMenu" then
+                    return screen
+                end
+            end
+        end
+        return nil
+    end
+
+    -- KEY_J: Open/Close Smell Selection Menu
+    GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_J, function()
+        local player = GLOBAL.ThePlayer
+        if player and player:IsValid() and player.prefab == "mycharacter" then
+            local TheFrontEnd = GLOBAL.TheFrontEnd
+            local active_screen = TheFrontEnd:GetActiveScreen()
+            if active_screen and (active_screen.name == "ChatInputScreen" or active_screen.name == "ConsoleScreen") then
+                return
+            end
+            
+            local open_screen = IsSmellMenuOpen()
+            if open_screen then
+                open_screen:Close()
+            elseif active_screen == player.HUD then
+                local ScavSmellMenu = require("screens/scav_smell_menu")
+                TheFrontEnd:PushScreen(ScavSmellMenu(player, GetModRPC, SendModRPCToServer))
             end
         end
     end)
@@ -410,12 +493,12 @@ end)
 
 -- Debug key listener to inflict damage and test the limb medical screen
 if not TheNet:IsDedicated() then
-    GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_J, function()
+    GLOBAL.TheInput:AddKeyUpHandler(GLOBAL.KEY_K, function()
         local player = GLOBAL.ThePlayer
         if player and player.components.scav_health then
             player.components.scav_health:DistributeDamage(30)
             if player.components.talker then
-                player.components.talker:Say("Ой! Я нанёс себе тестовую травму (клавиша J)!")
+                player.components.talker:Say("Ой! Я нанёс себе тестовую травму (клавиша K)!")
             end
         end
     end)
@@ -477,11 +560,13 @@ if Builder then
     end
 end
 
--- Hook controls widget to add levels display and head stun blur overlay
 AddClassPostConstruct("widgets/controls", function(self)
     if self.owner and self.owner:HasTag("scav_unarmed_worker") then
         local ScavHeadBlurOverlay = require("widgets/scav_head_blur_overlay")
         self.scav_head_blur_overlay = self:AddChild(ScavHeadBlurOverlay(self.owner))
+        
+        local ScavSmellVisionOverlay = require("widgets/scav_smell_vision_overlay")
+        self.scav_smell_vision_overlay = self:AddChild(ScavSmellVisionOverlay(self.owner))
     end
 end)
 
@@ -573,3 +658,115 @@ AddClassPostConstruct("components/playeractionpicker", function(self)
         return actions
     end
 end)
+
+--------------------------------------------------------------------------------
+-- CRAFTING RECIPES (Character Crafting Menu / Character Specific)
+--------------------------------------------------------------------------------
+local Ingredient = GLOBAL.Ingredient
+local TECH = GLOBAL.TECH
+
+AddRecipe2(
+    "scav_antidote",
+    {
+        Ingredient("spidergland", 3),
+        Ingredient("petals", 6),
+        Ingredient("stinger", 1)
+    },
+    TECH.NONE,
+    {
+        builder_tag = "mycharacter",
+        atlas = "images/scav_syringe.xml",
+        image = "scav_syringe"
+    },
+    { "character", "healing" }
+)
+
+AddRecipe2(
+    "scav_bandage",
+    {
+        Ingredient("spidergland", 2),
+        Ingredient("cutgrass", 5),
+        Ingredient("twigs", 3)
+    },
+    TECH.NONE,
+    {
+        builder_tag = "mycharacter",
+        atlas = "images/scav_bandage.xml",
+        image = "scav_bandage"
+    },
+    { "character", "healing" }
+)
+
+--------------------------------------------------------------------------------
+-- ACTIVE HEALING ABILITY (Right-click other players)
+--------------------------------------------------------------------------------
+local BufferedAction = GLOBAL.BufferedAction
+local ActionHandler = GLOBAL.ActionHandler
+local ACTIONS = GLOBAL.ACTIONS
+
+local SCAV_HEAL = AddAction("SCAV_HEAL", "Лечить", function(act)
+    if act.doer and act.target and act.doer:IsValid() and act.target:IsValid() then
+        if act.doer.scav_heal_cooldown then
+            local cd = act.doer.scav_heal_cooldown:value()
+            if cd <= 0 then
+                -- Apply heal
+                if act.target.components.health then
+                    act.target.components.health:DoDelta(5, false, "treatment")
+                end
+                
+                -- Play sound
+                if act.doer.SoundEmitter then
+                    act.doer.SoundEmitter:PlaySound("dontstarve/HUD/health_up")
+                end
+                
+                -- Start cooldown (180 seconds = 3 minutes)
+                act.doer.scav_heal_cooldown:set(180)
+                
+                -- Announcement/feedback
+                if act.doer.components.talker then
+                    act.doer.components.talker:Say("Я подлечил тебя!")
+                end
+                if act.target.components.talker then
+                    act.target.components.talker:Say("Меня подлечили!")
+                end
+                return true
+            end
+        end
+    end
+    return false
+end)
+
+SCAV_HEAL.distance = 2.5
+SCAV_HEAL.mount_valid = false
+SCAV_HEAL.ghost_valid = false
+
+-- Bind action to player stategraph handler (using doshortaction for reach-out animation)
+AddStategraphActionHandler("wilson", ActionHandler(ACTIONS.SCAV_HEAL, "doshortaction"))
+AddStategraphActionHandler("wilson_client", ActionHandler(ACTIONS.SCAV_HEAL, "doshortaction"))
+
+-- Hook playeractionpicker to add right click action when hovering over other players
+AddComponentPostInit("playeractionpicker", function(self)
+    local old_GetRightClickActions = self.GetRightClickActions
+    self.GetRightClickActions = function(self, position, target, ...)
+        local actions = old_GetRightClickActions(self, position, target, ...)
+        local doer = self.inst
+        if doer and doer:HasTag("scav_unarmed_worker") and target and target:HasTag("player") and not target:HasTag("playerghost") and target ~= doer then
+            local cd = doer.scav_heal_cooldown and doer.scav_heal_cooldown:value() or 0
+            if cd <= 0 then
+                local has_act = false
+                for _, act in ipairs(actions) do
+                    if act.action == ACTIONS.SCAV_HEAL then
+                        has_act = true
+                        break
+                    end
+                end
+                if not has_act then
+                    table.insert(actions, 1, BufferedAction(doer, target, ACTIONS.SCAV_HEAL))
+                end
+            end
+        end
+        return actions
+    end
+end)
+
+
