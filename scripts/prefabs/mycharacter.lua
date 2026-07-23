@@ -1,8 +1,7 @@
 local MakePlayerCharacter = require("prefabs/player_common")
 
 local assets = {
-    -- Custom character build animation (uncomment when compiled and placed in anim/)
-    -- Asset("ANIM", "anim/mycharacter.zip"),
+    Asset("ANIM", "anim/mycharacter.zip"),
 }
 
 -- Custom starting inventory items
@@ -13,10 +12,10 @@ local start_inv = {
 
 -- This is called both on client and server
 local function common_postinit(inst)
-    -- Ensure build is initialized so character model is visible
+    -- Ensure character build is set to mycharacter
     if inst.AnimState then
         inst.AnimState:SetBank("wilson")
-        inst.AnimState:SetBuild("wilson")
+        inst.AnimState:SetBuild("mycharacter")
     end
 
     -- Minimap icon (using Wilson as placeholder)
