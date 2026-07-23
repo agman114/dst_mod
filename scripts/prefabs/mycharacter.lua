@@ -12,10 +12,10 @@ local start_inv = {
 
 -- This is called both on client and server
 local function common_postinit(inst)
-    -- Ensure bank is wilson and build is mycharacter
+    -- Ensure bank is wilson and build is mychar
     if inst.AnimState then
         inst.AnimState:SetBank("wilson")
-        inst.AnimState:SetBuild("mycharacter")
+        inst.AnimState:SetBuild("mychar")
     end
 
     -- Minimap icon (using Wilson as placeholder)
