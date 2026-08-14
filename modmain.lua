@@ -117,7 +117,6 @@ PrefabFiles = {
     "scav_items",
     "scav_chest",
     "scav_keypad_chest",
-    "scav_smell_wisp",
 }
 
 -- Load speech strings
