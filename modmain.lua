@@ -565,8 +565,10 @@ AddClassPostConstruct("widgets/controls", function(self)
         local ScavHeadBlurOverlay = require("widgets/scav_head_blur_overlay")
         self.scav_head_blur_overlay = self:AddChild(ScavHeadBlurOverlay(self.owner))
         
-        local ScavSmellVisionOverlay = require("widgets/scav_smell_vision_overlay")
-        self.scav_smell_vision_overlay = self:AddChild(ScavSmellVisionOverlay(self.owner))
+        local ok, ScavSmellVisionOverlay = pcall(require, "widgets/scav_smell_vision_overlay")
+        if ok and ScavSmellVisionOverlay then
+            self.scav_smell_vision_overlay = self:AddChild(ScavSmellVisionOverlay(self.owner))
+        end
     end
 end)
 
